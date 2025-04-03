@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { GitHub, Linkedin, Mail, MapPin, Twitter } from "lucide-react";
+import { Github, Linkedin, Mail, MapPin, Twitter } from "lucide-react";
 import { profile } from "@/data/mock-data";
 import ContactConfirmationDialog from "@/components/ContactConfirmationDialog";
 

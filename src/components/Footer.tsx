@@ -1,6 +1,5 @@
-
 import { Link } from "react-router-dom";
-import { GitHub, Linkedin, Mail, Twitter } from "lucide-react";
+import { Github, Linkedin, Mail, Twitter } from "lucide-react";
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
@@ -24,7 +23,7 @@ export default function Footer() {
                 rel="noopener noreferrer"
                 className="text-foreground hover:text-primary transition-colors"
               >
-                <GitHub className="h-5 w-5" />
+                <Github className="h-5 w-5" />
                 <span className="sr-only">GitHub</span>
               </a>
               <a
