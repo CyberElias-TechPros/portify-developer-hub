@@ -1,229 +1,232 @@
 
+import { useState } from "react";
+import { Mail, Send, User, MessageSquare, Github, Twitter, Linkedin } from "lucide-react";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useState } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Github, Linkedin, Mail, MapPin, Twitter } from "lucide-react";
-import { profile } from "@/data/mock-data";
-import ContactConfirmationDialog from "@/components/ContactConfirmationDialog";
 import { supabase } from "@/integrations/supabase/client";
+import ContactConfirmationDialog from "@/components/ContactConfirmationDialog";
 
 const Contact = () => {
   const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     subject: "",
-    message: ""
+    message: "",
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showConfirmation, setShowConfirmation] = useState(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
+
     try {
       // Call the Supabase edge function to submit the contact form
-      const { data, error } = await supabase.functions.invoke('contact-submit', {
-        body: formData
+      const { error } = await supabase.functions.invoke("contact-submit", {
+        body: formData,
       });
-      
+
       if (error) {
         throw new Error(error.message);
       }
-      
-      // Reset form and show confirmation
+
+      // Reset form and show success message
       setFormData({
         name: "",
         email: "",
         subject: "",
-        message: ""
+        message: "",
       });
+
       setShowConfirmation(true);
-      
     } catch (error) {
       console.error("Error submitting form:", error);
       toast({
         title: "Error",
         description: "Failed to send your message. Please try again later.",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const closeConfirmation = () => {
-    setShowConfirmation(false);
-  };
-
   return (
     <Layout>
-      <div className="w-full py-16 px-6 md:px-12 lg:px-24">
-        <div className="max-w-7xl mx-auto">
-          <h1 className="text-4xl font-bold mb-2">Contact</h1>
-          <p className="text-muted-foreground max-w-2xl mb-12">
-            Get in touch with me directly or through social media.
-          </p>
+      <div className="container max-w-6xl mx-auto py-12 px-4 md:px-6">
+        <div className="flex flex-col space-y-12">
+          <div className="text-center space-y-4">
+            <h1 className="text-4xl font-bold tracking-tight">Get in Touch</h1>
+            <p className="text-muted-foreground max-w-xl mx-auto">
+              Have a question or want to work together? Fill out the form below
+              and I'll get back to you as soon as possible.
+            </p>
+          </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Contact Form */}
-            <div className="lg:col-span-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Send a Message</CardTitle>
-                  <CardDescription>
-                    Fill out the form below and I'll respond as soon as possible.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label htmlFor="name" className="text-sm font-medium">
-                          Name
-                        </label>
-                        <Input
-                          id="name"
-                          name="name"
-                          placeholder="Your name"
-                          value={formData.name}
-                          onChange={handleChange}
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label htmlFor="email" className="text-sm font-medium">
-                          Email
-                        </label>
-                        <Input
-                          id="email"
-                          name="email"
-                          type="email"
-                          placeholder="Your email"
-                          value={formData.email}
-                          onChange={handleChange}
-                          required
-                        />
-                      </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <Card>
+              <CardHeader>
+                <CardTitle>Send a Message</CardTitle>
+                <CardDescription>
+                  Fill out the form below to send me a message
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Name</Label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="name"
+                        name="name"
+                        placeholder="Your name"
+                        className="pl-10"
+                        value={formData.name}
+                        onChange={handleChange}
+                        required
+                      />
                     </div>
-                    <div className="space-y-2">
-                      <label htmlFor="subject" className="text-sm font-medium">
-                        Subject
-                      </label>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="email"
+                        name="email"
+                        type="email"
+                        placeholder="Your email"
+                        className="pl-10"
+                        value={formData.email}
+                        onChange={handleChange}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="subject">Subject</Label>
+                    <div className="relative">
+                      <MessageSquare className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                       <Input
                         id="subject"
                         name="subject"
-                        placeholder="Subject of your message"
+                        placeholder="Message subject"
+                        className="pl-10"
                         value={formData.subject}
                         onChange={handleChange}
                         required
                       />
                     </div>
-                    <div className="space-y-2">
-                      <label htmlFor="message" className="text-sm font-medium">
-                        Message
-                      </label>
-                      <Textarea
-                        id="message"
-                        name="message"
-                        placeholder="Your message"
-                        rows={5}
-                        value={formData.message}
-                        onChange={handleChange}
-                        required
-                      />
-                    </div>
-                    <Button type="submit" className="w-full" disabled={isSubmitting}>
-                      {isSubmitting ? "Sending..." : "Send Message"}
-                    </Button>
-                  </form>
-                </CardContent>
-              </Card>
-            </div>
+                  </div>
 
-            {/* Contact Info */}
-            <div>
+                  <div className="space-y-2">
+                    <Label htmlFor="message">Message</Label>
+                    <Textarea
+                      id="message"
+                      name="message"
+                      placeholder="Your message"
+                      rows={5}
+                      value={formData.message}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
+
+                  <Button type="submit" className="w-full" disabled={isSubmitting}>
+                    {isSubmitting ? (
+                      "Sending..."
+                    ) : (
+                      <>
+                        Send Message <Send className="ml-2 h-4 w-4" />
+                      </>
+                    )}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+
+            <div className="space-y-8">
               <Card>
                 <CardHeader>
                   <CardTitle>Contact Information</CardTitle>
                   <CardDescription>
-                    Here's how you can reach me.
+                    Other ways to get in touch with me
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex items-start space-x-3">
-                    <MapPin className="h-5 w-5 text-primary mt-0.5" />
-                    <div>
-                      <h3 className="font-medium">Location</h3>
-                      <p className="text-muted-foreground">{profile.location}</p>
-                    </div>
+                  <div className="flex items-center space-x-3">
+                    <Mail className="h-5 w-5 text-primary" />
+                    <a href="mailto:contact@example.com" className="hover:text-primary transition-colors">
+                      contact@example.com
+                    </a>
                   </div>
-                  <div className="flex items-start space-x-3">
-                    <Mail className="h-5 w-5 text-primary mt-0.5" />
-                    <div>
-                      <h3 className="font-medium">Email</h3>
-                      <a 
-                        href={`mailto:${profile.email}`} 
-                        className="text-muted-foreground hover:text-primary"
-                      >
-                        {profile.email}
-                      </a>
-                    </div>
-                  </div>
+                </CardContent>
+              </Card>
 
-                  <div className="pt-6">
-                    <h3 className="font-medium mb-3">Social Media</h3>
-                    <div className="flex space-x-4">
-                      <a
-                        href={`https://${profile.github}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="bg-secondary p-3 rounded-full hover:bg-primary/10 transition-colors"
-                      >
-                        <Github className="h-5 w-5" />
-                        <span className="sr-only">GitHub</span>
-                      </a>
-                      <a
-                        href={`https://${profile.linkedin}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="bg-secondary p-3 rounded-full hover:bg-primary/10 transition-colors"
-                      >
-                        <Linkedin className="h-5 w-5" />
-                        <span className="sr-only">LinkedIn</span>
-                      </a>
-                      <a
-                        href={`https://${profile.twitter}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="bg-secondary p-3 rounded-full hover:bg-primary/10 transition-colors"
-                      >
-                        <Twitter className="h-5 w-5" />
-                        <span className="sr-only">Twitter</span>
-                      </a>
-                    </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Social Media</CardTitle>
+                  <CardDescription>
+                    Connect with me on social platforms
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-3 gap-4">
+                    <a
+                      href="https://github.com"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex flex-col items-center justify-center p-4 rounded-lg hover:bg-secondary transition-colors"
+                    >
+                      <Github className="h-8 w-8 mb-2" />
+                      <span>GitHub</span>
+                    </a>
+                    <a
+                      href="https://twitter.com"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex flex-col items-center justify-center p-4 rounded-lg hover:bg-secondary transition-colors"
+                    >
+                      <Twitter className="h-8 w-8 mb-2" />
+                      <span>Twitter</span>
+                    </a>
+                    <a
+                      href="https://linkedin.com"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex flex-col items-center justify-center p-4 rounded-lg hover:bg-secondary transition-colors"
+                    >
+                      <Linkedin className="h-8 w-8 mb-2" />
+                      <span>LinkedIn</span>
+                    </a>
                   </div>
                 </CardContent>
               </Card>
             </div>
           </div>
         </div>
+
+        <ContactConfirmationDialog
+          open={showConfirmation}
+          onClose={() => setShowConfirmation(false)}
+        />
       </div>
-      
-      <ContactConfirmationDialog
-        open={showConfirmation}
-        onClose={closeConfirmation}
-      />
     </Layout>
   );
 };
