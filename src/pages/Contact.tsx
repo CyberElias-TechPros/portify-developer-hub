@@ -8,6 +8,7 @@ import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { GitHub, Linkedin, Mail, MapPin, Twitter } from "lucide-react";
 import { profile } from "@/data/mock-data";
+import ContactConfirmationDialog from "@/components/ContactConfirmationDialog";
 
 const Contact = () => {
   const { toast } = useToast();
@@ -18,6 +19,7 @@ const Contact = () => {
     message: ""
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -31,10 +33,6 @@ const Contact = () => {
     // Simulate API call
     setTimeout(() => {
       console.log("Form submitted:", formData);
-      toast({
-        title: "Message sent!",
-        description: "Thanks for reaching out. I'll get back to you soon.",
-      });
       setFormData({
         name: "",
         email: "",
@@ -42,7 +40,12 @@ const Contact = () => {
         message: ""
       });
       setIsSubmitting(false);
+      setShowConfirmation(true);
     }, 1000);
+  };
+
+  const closeConfirmation = () => {
+    setShowConfirmation(false);
   };
 
   return (
@@ -198,6 +201,11 @@ const Contact = () => {
           </div>
         </div>
       </div>
+      
+      <ContactConfirmationDialog
+        open={showConfirmation}
+        onClose={closeConfirmation}
+      />
     </Layout>
   );
 };
