@@ -1,1 +1,5 @@
+
 project_id = "ojpygyznnaxxoniqdmxh"
+
+[functions.contact-submit]
+verify_jwt = false

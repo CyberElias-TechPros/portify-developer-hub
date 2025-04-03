@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Github, Linkedin, Mail, MapPin, Twitter } from "lucide-react";
 import { profile } from "@/data/mock-data";
 import ContactConfirmationDialog from "@/components/ContactConfirmationDialog";
+import { supabase } from "@/integrations/supabase/client";
 
 const Contact = () => {
   const { toast } = useToast();
@@ -26,22 +27,39 @@ const Contact = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      console.log("Form submitted:", formData);
+    try {
+      // Call the Supabase edge function to submit the contact form
+      const { data, error } = await supabase.functions.invoke('contact-submit', {
+        body: formData
+      });
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      // Reset form and show confirmation
       setFormData({
         name: "",
         email: "",
         subject: "",
         message: ""
       });
-      setIsSubmitting(false);
       setShowConfirmation(true);
-    }, 1000);
+      
+    } catch (error) {
+      console.error("Error submitting form:", error);
+      toast({
+        title: "Error",
+        description: "Failed to send your message. Please try again later.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const closeConfirmation = () => {
@@ -172,7 +190,7 @@ const Contact = () => {
                         rel="noopener noreferrer"
                         className="bg-secondary p-3 rounded-full hover:bg-primary/10 transition-colors"
                       >
-                        <GitHub className="h-5 w-5" />
+                        <Github className="h-5 w-5" />
                         <span className="sr-only">GitHub</span>
                       </a>
                       <a
