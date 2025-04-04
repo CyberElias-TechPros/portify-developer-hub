@@ -14,10 +14,17 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 
+interface ProfileData {
+  id: string;
+  full_name?: string;
+  avatar_url?: string;
+  [key: string]: any;
+}
+
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
-  const [user, setUser] = useState(null);
-  const [profileData, setProfileData] = useState(null);
+  const [user, setUser] = useState<any>(null);
+  const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const location = useLocation();
 
   const toggleMenu = () => {
@@ -36,14 +43,18 @@ export default function Navbar() {
       setUser(data?.user);
       
       if (data?.user) {
-        // Get profile data
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', data.user.id)
-          .single();
-          
-        setProfileData(profile);
+        try {
+          // Get profile data
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', data.user.id)
+            .single();
+            
+          setProfileData(profile);
+        } catch (error) {
+          console.error("Error fetching profile:", error);
+        }
       }
     };
     
@@ -55,13 +66,17 @@ export default function Navbar() {
         setUser(session?.user || null);
         
         if (session?.user) {
-          const { data } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-            
-          setProfileData(data);
+          try {
+            const { data } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', session.user.id)
+              .single();
+              
+            setProfileData(data);
+          } catch (error) {
+            console.error("Error fetching profile:", error);
+          }
         } else {
           setProfileData(null);
         }

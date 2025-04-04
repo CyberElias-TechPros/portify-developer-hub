@@ -1,82 +1,64 @@
 
 import { useState, useEffect } from "react";
+import Layout from "@/components/Layout";
 import { useNavigate } from "react-router-dom";
-import { z } from "zod";
 import { useForm } from "react-hook-form";
+import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { User } from "@supabase/supabase-js";
-import Layout from "@/components/Layout";
+import { Github, Linkedin, Globe, MapPin, Mail, Twitter } from "lucide-react";
 
-const profileSchema = z.object({
-  fullName: z.string().min(2, "Name must be at least 2 characters"),
-  title: z.string().optional(),
-  bio: z.string().max(300, "Bio must be less than 300 characters").optional(),
-  location: z.string().optional(),
-  website: z.string().url("Please enter a valid URL").or(z.string().length(0)).optional(),
-  github: z.string().url("Please enter a valid URL").or(z.string().length(0)).optional(),
-  linkedin: z.string().url("Please enter a valid URL").or(z.string().length(0)).optional(),
-  twitter: z.string().url("Please enter a valid URL").or(z.string().length(0)).optional(),
-});
-
-const securitySchema = z.object({
-  email: z.string().email(),
-  currentPassword: z.string().min(6).optional(),
-  newPassword: z.string().min(6).optional(),
-  confirmPassword: z.string().min(6).optional(),
-}).refine(data => !data.newPassword || data.newPassword === data.confirmPassword, {
-  message: "Passwords do not match",
-  path: ["confirmPassword"],
-}).refine(data => !(data.newPassword && !data.currentPassword), {
-  message: "Current password is required to set a new password",
-  path: ["currentPassword"],
-});
-
-type ProfileFormValues = z.infer<typeof profileSchema>;
-type SecurityFormValues = z.infer<typeof securitySchema>;
+interface ProfileFormValues {
+  full_name: string;
+  title: string;
+  bio: string;
+  location: string;
+  website: string;
+  github: string;
+  linkedin: string;
+  twitter: string;
+  email: string;
+}
 
 export default function Profile() {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [savingProfile, setSavingProfile] = useState(false);
-  const [savingSecurity, setSavingSecurity] = useState(false);
-  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [user, setUser] = useState<any>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  
+  const profileSchema = z.object({
+    full_name: z.string().min(2, "Name must be at least 2 characters").optional(),
+    title: z.string().optional(),
+    bio: z.string().optional(),
+    location: z.string().optional(),
+    website: z.string().url().optional().or(z.string().length(0)),
+    github: z.string().optional(),
+    linkedin: z.string().optional(),
+    twitter: z.string().optional(),
+    email: z.string().email().optional(),
+  });
 
-  const profileForm = useForm<ProfileFormValues>({
+  const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
-      fullName: "",
+      full_name: "",
       title: "",
       bio: "",
       location: "",
@@ -84,357 +66,340 @@ export default function Profile() {
       github: "",
       linkedin: "",
       twitter: "",
-    },
-  });
-
-  const securityForm = useForm<SecurityFormValues>({
-    resolver: zodResolver(securitySchema),
-    defaultValues: {
       email: "",
-      currentPassword: "",
-      newPassword: "",
-      confirmPassword: "",
     },
   });
 
+  // Get current auth state and profile data
   useEffect(() => {
-    async function getUser() {
+    const getUser = async () => {
+      const { data } = await supabase.auth.getUser();
+      
+      if (!data.user) {
+        navigate("/auth");
+        return;
+      }
+      
+      setUser(data.user);
+      
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          navigate("/auth");
-          return;
-        }
-        
-        setUser(user);
-        securityForm.setValue("email", user.email || "");
-        
-        // Fetch user profile
-        const { data: profile, error } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", user.id)
+        // Get profile data
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', data.user.id)
           .single();
           
-        if (profile) {
-          profileForm.reset({
-            fullName: profile.full_name || "",
-            title: profile.title || "",
-            bio: profile.bio || "",
-            location: profile.location || "",
-            website: profile.website || "",
-            github: profile.github || "",
-            linkedin: profile.linkedin || "",
-            twitter: profile.twitter || "",
+        if (profileData) {
+          form.reset({
+            full_name: profileData.full_name || "",
+            title: profileData.title || "",
+            bio: profileData.bio || "",
+            location: profileData.location || "",
+            website: profileData.website || "",
+            github: profileData.github || "",
+            linkedin: profileData.linkedin || "",
+            twitter: profileData.twitter || "",
+            email: data.user.email || "",
           });
           
-          setAvatarUrl(profile.avatar_url || null);
+          setAvatarUrl(profileData.avatar_url);
         }
       } catch (error) {
-        console.error("Error loading user:", error);
+        console.error("Error fetching profile:", error);
         toast({
           title: "Error",
-          description: "Failed to load user profile",
+          description: "Could not load profile data.",
           variant: "destructive",
         });
-      } finally {
-        setLoading(false);
       }
-    }
+    };
     
     getUser();
-  }, [navigate, toast]);
+  }, [navigate, toast, form]);
 
-  const onProfileSubmit = async (data: ProfileFormValues) => {
+  const handleSubmit = async (data: ProfileFormValues) => {
     if (!user) return;
     
-    setSavingProfile(true);
+    setIsLoading(true);
+    
     try {
       const { error } = await supabase
-        .from("profiles")
+        .from('profiles')
         .upsert({
           id: user.id,
-          full_name: data.fullName,
-          title: data.title || null,
-          bio: data.bio || null,
-          location: data.location || null,
-          website: data.website || null,
-          github: data.github || null,
-          linkedin: data.linkedin || null,
-          twitter: data.twitter || null,
-          updated_at: new Date().toISOString(),
+          full_name: data.full_name,
+          title: data.title,
+          bio: data.bio,
+          location: data.location,
+          website: data.website,
+          github: data.github,
+          linkedin: data.linkedin,
+          twitter: data.twitter,
+          updated_at: new Date(),
         });
-        
+      
       if (error) throw error;
       
       toast({
         title: "Profile updated",
-        description: "Your profile has been successfully updated",
+        description: "Your profile has been updated successfully.",
       });
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to update profile.",
         variant: "destructive",
       });
     } finally {
-      setSavingProfile(false);
+      setIsLoading(false);
     }
   };
 
-  const onSecuritySubmit = async (data: SecurityFormValues) => {
-    setSavingSecurity(true);
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     try {
-      if (data.newPassword) {
-        // Update password
-        const { error } = await supabase.auth.updateUser({
-          password: data.newPassword,
-        });
-        
-        if (error) throw error;
+      if (!e.target.files || e.target.files.length === 0) {
+        return;
       }
       
-      toast({
-        title: "Security settings updated",
-        description: "Your security settings have been successfully updated",
-      });
+      const file = e.target.files[0];
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${user.id}-${Math.random()}.${fileExt}`;
       
-      securityForm.reset({
-        email: data.email,
-        currentPassword: "",
-        newPassword: "",
-        confirmPassword: "",
+      setIsLoading(true);
+      
+      // Create a storage bucket first (if you don't have one already)
+      const { error: storageError } = await supabase.storage.createBucket('avatars', {
+        public: true,
+        fileSizeLimit: 1024 * 1024, // 1MB
       });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setSavingSecurity(false);
-    }
-  };
-  
-  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!user || !event.target.files || event.target.files.length === 0) return;
-    
-    const file = event.target.files[0];
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${user.id}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
-    const filePath = `avatars/${fileName}`;
-    
-    try {
-      // Upload avatar to storage
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, file);
-        
+
+      // Upload file to storage
+      const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file);
+      
       if (uploadError) throw uploadError;
       
       // Get public URL
-      const { data: publicURL } = supabase.storage.from('avatars').getPublicUrl(filePath);
+      const { data: publicUrlData } = supabase.storage.from('avatars').getPublicUrl(filePath);
       
-      // Update profile with new avatar URL
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ avatar_url: publicURL.publicUrl })
-        .eq('id', user.id);
+      // Update profile with avatar URL
+      if (publicUrlData) {
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({
+            avatar_url: publicUrlData.publicUrl,
+            updated_at: new Date(),
+          })
+          .eq('id', user.id);
         
-      if (updateError) throw updateError;
-      
-      setAvatarUrl(publicURL.publicUrl);
-      toast({
-        title: "Avatar updated",
-        description: "Your profile picture has been updated",
-      });
+        if (updateError) throw updateError;
+        
+        setAvatarUrl(publicUrlData.publicUrl);
+        
+        toast({
+          title: "Avatar updated",
+          description: "Your profile picture has been updated successfully.",
+        });
+      }
     } catch (error: any) {
-      toast({
-        title: "Error uploading avatar",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      
-      toast({
-        title: "Logged out",
-        description: "You have been successfully logged out",
-      });
-      
-      navigate("/");
-    } catch (error: any) {
+      console.error("Error uploading avatar:", error);
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to update avatar.",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
-
-  if (loading) {
-    return (
-      <Layout>
-        <div className="container max-w-4xl py-12">
-          <div className="space-y-8">
-            <div className="flex items-center space-x-4">
-              <div className="h-12 w-12 rounded-full bg-secondary animate-pulse" />
-              <div className="space-y-2">
-                <div className="h-4 w-[250px] bg-secondary animate-pulse rounded" />
-                <div className="h-4 w-[200px] bg-secondary animate-pulse rounded" />
-              </div>
-            </div>
-            
-            <div className="space-y-3">
-              <div className="h-8 w-1/3 bg-secondary animate-pulse rounded" />
-              <div className="h-24 w-full bg-secondary animate-pulse rounded" />
-              <div className="h-10 w-full bg-secondary animate-pulse rounded" />
-              <div className="h-10 w-full bg-secondary animate-pulse rounded" />
-            </div>
-          </div>
-        </div>
-      </Layout>
-    );
-  }
 
   return (
     <Layout>
-      <div className="container max-w-4xl py-12">
-        <div className="space-y-8">
-          <div className="flex items-center space-x-4">
-            <Avatar className="h-16 w-16">
-              <AvatarImage src={avatarUrl || ""} alt={profileForm.getValues().fullName} />
-              <AvatarFallback>
-                {profileForm.getValues().fullName.charAt(0) || user?.email?.charAt(0) || "U"}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <h1 className="text-2xl font-bold">Profile Settings</h1>
-              <p className="text-muted-foreground">{user?.email}</p>
-            </div>
-          </div>
+      <div className="container py-12 max-w-4xl">
+        <h1 className="text-3xl font-bold mb-6">Profile Settings</h1>
+        
+        <Tabs defaultValue="personal">
+          <TabsList className="mb-8">
+            <TabsTrigger value="personal">Personal Information</TabsTrigger>
+            <TabsTrigger value="security">Security</TabsTrigger>
+            <TabsTrigger value="preferences">Preferences</TabsTrigger>
+          </TabsList>
           
-          <Tabs defaultValue="profile" className="space-y-8">
-            <TabsList>
-              <TabsTrigger value="profile">Profile</TabsTrigger>
-              <TabsTrigger value="security">Security</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="profile" className="space-y-6">
-              <Card>
+          <TabsContent value="personal">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <Card className="col-span-1">
                 <CardHeader>
                   <CardTitle>Profile Picture</CardTitle>
-                  <CardDescription>
-                    Upload a new profile picture. The image should be square and at least 300x300 pixels.
-                  </CardDescription>
+                  <CardDescription>Update your profile photo</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center space-x-4">
-                    <Avatar className="h-20 w-20">
-                      <AvatarImage src={avatarUrl || ""} alt={profileForm.getValues().fullName} />
+                <CardContent>
+                  <div className="flex flex-col items-center space-y-4">
+                    <Avatar className="w-32 h-32">
+                      <AvatarImage src={avatarUrl || undefined} />
                       <AvatarFallback>
-                        {profileForm.getValues().fullName.charAt(0) || user?.email?.charAt(0) || "U"}
+                        {user?.email?.charAt(0)?.toUpperCase() || "U"}
                       </AvatarFallback>
                     </Avatar>
-                    <Input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleAvatarUpload}
-                      className="max-w-sm"
-                    />
+                    
+                    <div className="flex flex-col space-y-2 items-center">
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleAvatarChange}
+                        className="hidden"
+                        id="avatar-upload"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={isLoading}
+                        onClick={() => document.getElementById('avatar-upload')?.click()}
+                      >
+                        Change Avatar
+                      </Button>
+                      
+                      {avatarUrl && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={async () => {
+                            try {
+                              setIsLoading(true);
+                              await supabase
+                                .from('profiles')
+                                .update({
+                                  avatar_url: null,
+                                })
+                                .eq('id', user.id);
+                              
+                              setAvatarUrl(null);
+                              toast({
+                                title: "Avatar removed",
+                                description: "Your profile picture has been removed.",
+                              });
+                            } catch (error: any) {
+                              toast({
+                                title: "Error",
+                                description: error.message || "Failed to remove avatar.",
+                                variant: "destructive",
+                              });
+                            } finally {
+                              setIsLoading(false);
+                            }
+                          }}
+                        >
+                          Remove
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
               
-              <Card>
+              <Card className="col-span-1 md:col-span-2">
                 <CardHeader>
                   <CardTitle>Personal Information</CardTitle>
-                  <CardDescription>
-                    Update your personal information and how people can find and connect with you.
-                  </CardDescription>
+                  <CardDescription>Update your personal information</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Form {...profileForm}>
-                    <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <FormField
-                          control={profileForm.control}
-                          name="fullName"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Full Name</FormLabel>
-                              <FormControl>
-                                <Input placeholder="John Doe" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={profileForm.control}
-                          name="title"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Professional Title</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Software Engineer" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
+                  <Form {...form}>
+                    <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+                      <FormField
+                        control={form.control}
+                        name="full_name"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Full Name</FormLabel>
+                            <FormControl>
+                              <Input {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                       
                       <FormField
-                        control={profileForm.control}
+                        control={form.control}
+                        name="title"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Professional Title</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="e.g. Full Stack Developer" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
                         name="bio"
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Bio</FormLabel>
                             <FormControl>
                               <Textarea
-                                placeholder="Tell us a little about yourself"
-                                className="resize-none"
                                 {...field}
+                                placeholder="Tell something about yourself"
+                                rows={4}
                               />
                             </FormControl>
-                            <FormDescription>
-                              You can use up to 300 characters.
-                            </FormDescription>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
                       
                       <FormField
-                        control={profileForm.control}
+                        control={form.control}
                         name="location"
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Location</FormLabel>
                             <FormControl>
-                              <Input placeholder="New York, USA" {...field} />
+                              <div className="relative">
+                                <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                                <Input {...field} className="pl-10" placeholder="e.g. San Francisco, CA" />
+                              </div>
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
                       
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <FormField
+                        control={form.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Email</FormLabel>
+                            <FormControl>
+                              <div className="relative">
+                                <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                                <Input {...field} className="pl-10" readOnly />
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <Separator />
+                      
+                      <h3 className="font-medium">Social Links</h3>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <FormField
-                          control={profileForm.control}
+                          control={form.control}
                           name="website"
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Website</FormLabel>
                               <FormControl>
-                                <Input placeholder="https://yourwebsite.com" {...field} />
+                                <div className="relative">
+                                  <Globe className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                                  <Input {...field} className="pl-10" placeholder="https://yourwebsite.com" />
+                                </div>
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -442,13 +407,16 @@ export default function Profile() {
                         />
                         
                         <FormField
-                          control={profileForm.control}
+                          control={form.control}
                           name="github"
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>GitHub</FormLabel>
                               <FormControl>
-                                <Input placeholder="https://github.com/username" {...field} />
+                                <div className="relative">
+                                  <Github className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                                  <Input {...field} className="pl-10" placeholder="yourusername" />
+                                </div>
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -456,13 +424,16 @@ export default function Profile() {
                         />
                         
                         <FormField
-                          control={profileForm.control}
+                          control={form.control}
                           name="linkedin"
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>LinkedIn</FormLabel>
                               <FormControl>
-                                <Input placeholder="https://linkedin.com/in/username" {...field} />
+                                <div className="relative">
+                                  <Linkedin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                                  <Input {...field} className="pl-10" placeholder="yourusername" />
+                                </div>
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -470,13 +441,16 @@ export default function Profile() {
                         />
                         
                         <FormField
-                          control={profileForm.control}
+                          control={form.control}
                           name="twitter"
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Twitter</FormLabel>
                               <FormControl>
-                                <Input placeholder="https://twitter.com/username" {...field} />
+                                <div className="relative">
+                                  <Twitter className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                                  <Input {...field} className="pl-10" placeholder="yourusername" />
+                                </div>
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -484,148 +458,108 @@ export default function Profile() {
                         />
                       </div>
                       
-                      <Button type="submit" disabled={savingProfile}>
-                        {savingProfile ? "Saving..." : "Save Changes"}
+                      <Button type="submit" disabled={isLoading}>
+                        {isLoading ? "Saving..." : "Save Changes"}
                       </Button>
                     </form>
                   </Form>
                 </CardContent>
               </Card>
-            </TabsContent>
-            
-            <TabsContent value="security" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Security Settings</CardTitle>
-                  <CardDescription>
-                    Manage your email address and password
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Form {...securityForm}>
-                    <form onSubmit={securityForm.handleSubmit(onSecuritySubmit)} className="space-y-6">
-                      <FormField
-                        control={securityForm.control}
-                        name="email"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Email Address</FormLabel>
-                            <FormControl>
-                              <Input {...field} disabled />
-                            </FormControl>
-                            <FormDescription>
-                              Contact support to change your email address.
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={securityForm.control}
-                        name="currentPassword"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Current Password</FormLabel>
-                            <FormControl>
-                              <Input type="password" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <FormField
-                          control={securityForm.control}
-                          name="newPassword"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>New Password</FormLabel>
-                              <FormControl>
-                                <Input type="password" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={securityForm.control}
-                          name="confirmPassword"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Confirm New Password</FormLabel>
-                              <FormControl>
-                                <Input type="password" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      
-                      <Button type="submit" disabled={savingSecurity}>
-                        {savingSecurity ? "Saving..." : "Update Security Settings"}
-                      </Button>
-                    </form>
-                  </Form>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle>Two-Factor Authentication</CardTitle>
-                  <CardDescription>
-                    Add an extra layer of security to your account
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between">
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="security">
+            <Card>
+              <CardHeader>
+                <CardTitle>Security Settings</CardTitle>
+                <CardDescription>Manage your account security</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div>
+                  <h3 className="font-medium mb-2">Change Password</h3>
+                  <div className="grid grid-cols-1 gap-4">
                     <div>
-                      <div className="font-medium">Two-factor authentication</div>
-                      <div className="text-sm text-muted-foreground">
-                        Receive a one-time code via email when signing in
-                      </div>
+                      <label className="text-sm font-medium">Current Password</label>
+                      <Input type="password" />
                     </div>
-                    <Switch
-                      checked={twoFactorEnabled}
-                      onCheckedChange={setTwoFactorEnabled}
-                    />
+                    <div>
+                      <label className="text-sm font-medium">New Password</label>
+                      <Input type="password" />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Confirm New Password</label>
+                      <Input type="password" />
+                    </div>
+                  </div>
+                  <Button className="mt-4">Update Password</Button>
+                </div>
+                
+                <Separator />
+                
+                <div>
+                  <h3 className="font-medium mb-2">Two-Factor Authentication</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Add an extra layer of security to your account
+                  </p>
+                  <Button variant="outline">Enable 2FA</Button>
+                </div>
+                
+                <Separator />
+                
+                <div>
+                  <h3 className="font-medium mb-2 text-destructive">Danger Zone</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Permanently delete your account and all your data
+                  </p>
+                  <Button variant="destructive">Delete Account</Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="preferences">
+            <Card>
+              <CardHeader>
+                <CardTitle>Preferences</CardTitle>
+                <CardDescription>Customize your experience</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-8">
+                  <div>
+                    <h3 className="font-medium mb-4">Theme Preferences</h3>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">Dark Mode</p>
+                        <p className="text-sm text-muted-foreground">Toggle between light and dark themes</p>
+                      </div>
+                      {/* Theme toggle would go here */}
+                    </div>
                   </div>
                   
-                  {twoFactorEnabled && (
-                    <div className="rounded-md bg-secondary p-4">
-                      <div className="font-medium">Two-factor authentication is enabled</div>
-                      <div className="text-sm text-muted-foreground mt-1">
-                        You will receive a one-time code via email when signing in
+                  <Separator />
+                  
+                  <div>
+                    <h3 className="font-medium mb-4">Email Notifications</h3>
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2">
+                        <input type="checkbox" id="marketingEmails" />
+                        <label htmlFor="marketingEmails">Marketing emails</label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input type="checkbox" id="securityAlerts" />
+                        <label htmlFor="securityAlerts">Security alerts</label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input type="checkbox" id="accountUpdates" />
+                        <label htmlFor="accountUpdates">Account updates</label>
                       </div>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle>Account Actions</CardTitle>
-                  <CardDescription>
-                    Manage your account settings and sessions
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Button variant="outline" onClick={handleLogout}>
-                      Sign Out
-                    </Button>
-                    <Button variant="destructive">
-                      Delete Account
-                    </Button>
                   </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </Layout>
   );

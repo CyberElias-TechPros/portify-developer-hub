@@ -16,9 +16,16 @@ const Contact = lazy(() => import("./pages/Contact"));
 const Auth = lazy(() => import("./pages/Auth"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Admin = lazy(() => import("./pages/Admin"));
-const Messages = lazy(() => import("./pages/Messages"));
+const AdminMessages = lazy(() => import("./pages/Messages"));
+const AdminUsers = lazy(() => import("./pages/AdminUsers"));
+const AdminAnalytics = lazy(() => import("./pages/AdminAnalytics"));
+const BlogCreate = lazy(() => import("./pages/BlogCreate"));
+const BlogPost = lazy(() => import("./pages/BlogPost"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Blog = lazy(() => import("./pages/Blog"));
+const ThemeCustomizer = lazy(() => import("./pages/ThemeCustomizer"));
+const ResumeEditor = lazy(() => import("./pages/ResumeEditor"));
+const PortfolioSections = lazy(() => import("./pages/PortfolioSections"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -40,13 +47,20 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/projects" element={<Projects />} />
             <Route path="/blog" element={<Blog />} />
+            <Route path="/blog/new" element={<BlogCreate />} />
+            <Route path="/blog/:slug" element={<BlogPost />} />
             <Route path="/skills" element={<Skills />} />
             <Route path="/experience" element={<Experience />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/theme-customizer" element={<ThemeCustomizer />} />
+            <Route path="/resume" element={<ResumeEditor />} />
+            <Route path="/sections" element={<PortfolioSections />} />
             <Route path="/admin" element={<Admin />} />
-            <Route path="/admin/messages" element={<Messages />} />
+            <Route path="/admin/messages" element={<AdminMessages />} />
+            <Route path="/admin/users" element={<AdminUsers />} />
+            <Route path="/admin/analytics" element={<AdminAnalytics />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
