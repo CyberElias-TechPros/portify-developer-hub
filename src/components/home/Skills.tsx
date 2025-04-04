@@ -73,7 +73,7 @@ export default function Skills() {
                         )}
                       </div>
                     </div>
-                    <SkillBar percentage={skill.proficiency} />
+                    <SkillBar percentage={skill.proficiency} name={skill.name} />
                   </motion.div>
                 ))}
               </div>
