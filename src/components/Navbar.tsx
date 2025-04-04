@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Menu, X, User } from "lucide-react";
@@ -44,12 +43,17 @@ export default function Navbar() {
       
       if (data?.user) {
         try {
-          // Get profile data
-          const { data: profile } = await supabase
+          // Get profile data using the correct table name
+          const { data: profile, error } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', data.user.id)
             .single();
+            
+          if (error) {
+            console.error("Error fetching profile:", error);
+            return;
+          }
             
           setProfileData(profile);
         } catch (error) {
@@ -67,11 +71,16 @@ export default function Navbar() {
         
         if (session?.user) {
           try {
-            const { data } = await supabase
+            const { data, error } = await supabase
               .from('profiles')
               .select('*')
               .eq('id', session.user.id)
               .single();
+              
+            if (error) {
+              console.error("Error fetching profile:", error);
+              return;
+            }
               
             setProfileData(data);
           } catch (error) {
@@ -169,6 +178,9 @@ export default function Navbar() {
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link to="/admin">Dashboard</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/sections">Portfolio Sections</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut}>
@@ -269,6 +281,13 @@ export default function Navbar() {
                   onClick={() => setIsOpen(false)}
                 >
                   Dashboard
+                </Link>
+                <Link
+                  to="/sections"
+                  className="p-2 hover:bg-secondary rounded-md transition-colors"
+                  onClick={() => setIsOpen(false)}
+                >
+                  Portfolio Sections
                 </Link>
                 <Button 
                   variant="ghost" 
