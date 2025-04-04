@@ -10,7 +10,11 @@ import LoadingState from "./components/LoadingState";
 // Lazy load pages for better performance
 const Index = lazy(() => import("./pages/Index"));
 const Projects = lazy(() => import("./pages/Projects"));
+const Skills = lazy(() => import("./pages/Skills"));
+const Experience = lazy(() => import("./pages/Experience"));
 const Contact = lazy(() => import("./pages/Contact"));
+const Auth = lazy(() => import("./pages/Auth"));
+const Profile = lazy(() => import("./pages/Profile"));
 const Admin = lazy(() => import("./pages/Admin"));
 const Messages = lazy(() => import("./pages/Messages"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -36,7 +40,11 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/projects" element={<Projects />} />
             <Route path="/blog" element={<Blog />} />
+            <Route path="/skills" element={<Skills />} />
+            <Route path="/experience" element={<Experience />} />
             <Route path="/contact" element={<Contact />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/profile" element={<Profile />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/admin/messages" element={<Messages />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

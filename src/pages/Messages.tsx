@@ -260,11 +260,16 @@ const Messages = () => {
                       </div>
                       <div className="mt-6 flex space-x-3">
                         <Button
-                          as="a"
-                          href={`mailto:${selectedMessage.email}?subject=Re: ${selectedMessage.subject}`}
-                          target="_blank"
+                          variant="default"
+                          asChild
                         >
-                          Reply via Email
+                          <a 
+                            href={`mailto:${selectedMessage.email}?subject=Re: ${selectedMessage.subject}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            Reply via Email
+                          </a>
                         </Button>
                       </div>
                     </div>

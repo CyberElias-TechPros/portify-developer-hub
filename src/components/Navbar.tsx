@@ -1,15 +1,81 @@
 
-import { useState } from "react";
-import { Link } from "react-router-dom";
-import { Menu, X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { Menu, X, User } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
+  const [user, setUser] = useState(null);
+  const [profileData, setProfileData] = useState(null);
+  const location = useLocation();
 
   const toggleMenu = () => {
     setIsOpen(!isOpen);
+  };
+
+  // Check active route
+  const isActive = (path: string) => {
+    return location.pathname === path;
+  };
+
+  useEffect(() => {
+    // Get current auth state
+    const getUser = async () => {
+      const { data } = await supabase.auth.getUser();
+      setUser(data?.user);
+      
+      if (data?.user) {
+        // Get profile data
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', data.user.id)
+          .single();
+          
+        setProfileData(profile);
+      }
+    };
+    
+    getUser();
+    
+    // Listen to auth changes
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        setUser(session?.user || null);
+        
+        if (session?.user) {
+          const { data } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+            
+          setProfileData(data);
+        } else {
+          setProfileData(null);
+        }
+      }
+    );
+    
+    // Cleanup
+    return () => {
+      authListener?.subscription?.unsubscribe();
+    };
+  }, []);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
   };
 
   return (
@@ -21,27 +87,85 @@ export default function Navbar() {
       {/* Desktop Navigation */}
       <div className="hidden md:flex items-center space-x-8">
         <div className="space-x-6">
-          <Link to="/" className="hover:text-primary transition-colors">
+          <Link 
+            to="/" 
+            className={`hover:text-primary transition-colors ${isActive('/') ? 'text-primary font-medium' : ''}`}
+          >
             Home
           </Link>
-          <Link to="/projects" className="hover:text-primary transition-colors">
+          <Link 
+            to="/projects" 
+            className={`hover:text-primary transition-colors ${isActive('/projects') ? 'text-primary font-medium' : ''}`}
+          >
             Projects
           </Link>
-          <Link to="/blog" className="hover:text-primary transition-colors">
+          <Link 
+            to="/skills" 
+            className={`hover:text-primary transition-colors ${isActive('/skills') ? 'text-primary font-medium' : ''}`}
+          >
+            Skills
+          </Link>
+          <Link 
+            to="/experience" 
+            className={`hover:text-primary transition-colors ${isActive('/experience') ? 'text-primary font-medium' : ''}`}
+          >
+            Experience
+          </Link>
+          <Link 
+            to="/blog" 
+            className={`hover:text-primary transition-colors ${isActive('/blog') ? 'text-primary font-medium' : ''}`}
+          >
             Blog
           </Link>
-          <Link to="/contact" className="hover:text-primary transition-colors">
+          <Link 
+            to="/contact" 
+            className={`hover:text-primary transition-colors ${isActive('/contact') ? 'text-primary font-medium' : ''}`}
+          >
             Contact
-          </Link>
-          <Link to="/admin" className="hover:text-primary transition-colors">
-            Admin
           </Link>
         </div>
         <div className="flex items-center space-x-3">
           <ThemeToggle />
-          <Button size="sm">
-            <Link to="/contact">Contact Me</Link>
-          </Button>
+          
+          {user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="rounded-full">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={profileData?.avatar_url} />
+                    <AvatarFallback>
+                      {profileData?.full_name?.charAt(0) || user?.email?.charAt(0)?.toUpperCase() || "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <div className="flex items-center justify-start gap-2 p-2">
+                  <div className="flex flex-col space-y-0.5 leading-none">
+                    {profileData?.full_name && (
+                      <p className="font-medium text-sm">{profileData.full_name}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground">{user.email}</p>
+                  </div>
+                </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link to="/profile">Profile Settings</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/admin">Dashboard</Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleSignOut}>
+                  Log Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button size="sm" asChild>
+              <Link to="/auth">Sign In</Link>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -62,44 +186,93 @@ export default function Navbar() {
           <div className="flex flex-col space-y-4">
             <Link
               to="/"
-              className="p-2 hover:bg-secondary rounded-md transition-colors"
+              className={`p-2 rounded-md transition-colors ${isActive('/') ? 'bg-secondary font-medium' : 'hover:bg-secondary'}`}
               onClick={() => setIsOpen(false)}
             >
               Home
             </Link>
             <Link
               to="/projects"
-              className="p-2 hover:bg-secondary rounded-md transition-colors"
+              className={`p-2 rounded-md transition-colors ${isActive('/projects') ? 'bg-secondary font-medium' : 'hover:bg-secondary'}`}
               onClick={() => setIsOpen(false)}
             >
               Projects
             </Link>
             <Link
+              to="/skills"
+              className={`p-2 rounded-md transition-colors ${isActive('/skills') ? 'bg-secondary font-medium' : 'hover:bg-secondary'}`}
+              onClick={() => setIsOpen(false)}
+            >
+              Skills
+            </Link>
+            <Link
+              to="/experience"
+              className={`p-2 rounded-md transition-colors ${isActive('/experience') ? 'bg-secondary font-medium' : 'hover:bg-secondary'}`}
+              onClick={() => setIsOpen(false)}
+            >
+              Experience
+            </Link>
+            <Link
               to="/blog"
-              className="p-2 hover:bg-secondary rounded-md transition-colors"
+              className={`p-2 rounded-md transition-colors ${isActive('/blog') ? 'bg-secondary font-medium' : 'hover:bg-secondary'}`}
               onClick={() => setIsOpen(false)}
             >
               Blog
             </Link>
             <Link
               to="/contact"
-              className="p-2 hover:bg-secondary rounded-md transition-colors"
+              className={`p-2 rounded-md transition-colors ${isActive('/contact') ? 'bg-secondary font-medium' : 'hover:bg-secondary'}`}
               onClick={() => setIsOpen(false)}
             >
               Contact
             </Link>
-            <Link
-              to="/admin"
-              className="p-2 hover:bg-secondary rounded-md transition-colors"
-              onClick={() => setIsOpen(false)}
-            >
-              Admin
-            </Link>
-            <Button className="w-full mt-2">
-              <Link to="/contact" onClick={() => setIsOpen(false)}>
-                Contact Me
-              </Link>
-            </Button>
+            
+            {user ? (
+              <>
+                <div className="pt-2 border-t flex items-center">
+                  <Avatar className="h-8 w-8 mr-3">
+                    <AvatarImage src={profileData?.avatar_url} />
+                    <AvatarFallback>
+                      {profileData?.full_name?.charAt(0) || user?.email?.charAt(0)?.toUpperCase() || "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium">{profileData?.full_name || user?.email}</span>
+                    <span className="text-xs text-muted-foreground">Logged in</span>
+                  </div>
+                </div>
+                <Link
+                  to="/profile"
+                  className="p-2 hover:bg-secondary rounded-md transition-colors"
+                  onClick={() => setIsOpen(false)}
+                >
+                  Profile Settings
+                </Link>
+                <Link
+                  to="/admin"
+                  className="p-2 hover:bg-secondary rounded-md transition-colors"
+                  onClick={() => setIsOpen(false)}
+                >
+                  Dashboard
+                </Link>
+                <Button 
+                  variant="ghost" 
+                  className="justify-start pl-2 font-normal"
+                  onClick={() => {
+                    handleSignOut();
+                    setIsOpen(false);
+                  }}
+                >
+                  Log Out
+                </Button>
+              </>
+            ) : (
+              <Button className="w-full mt-2" asChild>
+                <Link to="/auth" onClick={() => setIsOpen(false)}>
+                  Sign In
+                </Link>
+              </Button>
+            )}
           </div>
         </div>
       )}
