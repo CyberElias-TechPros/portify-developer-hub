@@ -1,745 +1,664 @@
 
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import Layout from "@/components/admin/Layout";
-import DashboardStats from "@/components/admin/DashboardStats";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { projects, experiences, profile } from "@/data/mock-data";
-import RoleManagement from "@/components/admin/RoleManagement";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import AdminLayout from '@/components/admin/Layout';
+import DashboardStats from '@/components/admin/DashboardStats';
+import RoleManagement from '@/components/admin/RoleManagement';
+import { useToast } from '@/hooks/use-toast';
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+
+type ProfileData = {
+  name: string;
+  title: string;
+  bio: string;
+  location: string;
+  email: string;
+  phone: string;
+  website: string;
+  github: string;
+  twitter: string;
+  linkedin: string;
+  avatarUrl: string;
+}
+
+type ThemeSettings = {
+  layout: 'single-page' | 'multi-page';
+  colorScheme: 'light' | 'dark' | 'system';
+  primaryColor: string;
+  fontFamily: string;
+  showBadge: boolean;
+}
 
 export default function Admin() {
-  const navigate = useNavigate();
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState("dashboard");
+  
   const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [selectedTab, setSelectedTab] = useState<string>("dashboard");
-  const [saveLoading, setSaveLoading] = useState(false);
-  
-  const [formProfile, setFormProfile] = useState({
-    name: profile.name,
-    title: profile.title,
-    bio: profile.bio,
-    location: profile.location,
-    email: profile.email,
-    phone: profile.phone,
-    avatarUrl: profile.avatarUrl,
-    website: profile.website || "",
-    github: profile.github || "",
-    twitter: profile.twitter || "",
+  const [profile, setProfile] = useState<ProfileData>({
+    name: "Ellis Graham",
+    title: "Full Stack Developer",
+    bio: "Passionate about building beautiful, functional, and accessible web applications.",
+    location: "San Francisco, CA",
+    email: "contact@ellisgraham.dev",
+    phone: "+1 (555) 123-4567",
+    website: "https://ellisgraham.dev",
+    github: "https://github.com/ellisgraham",
+    twitter: "https://twitter.com/ellisgraham",
+    linkedin: "https://linkedin.com/in/ellisgraham",
+    avatarUrl: "/placeholder.svg",
   });
   
-  const [siteSettings, setSiteSettings] = useState({
-    siteName: "My Portfolio",
-    siteDescription: "My professional portfolio website",
-    siteLanguage: "en",
-    allowComments: true,
-    enableBlog: true,
-    showProjectStats: true,
-    showSocialLinks: true,
-    enableDarkMode: true,
-    customDomain: "myportfolio.com",
-    useSinglePage: false,
+  const [theme, setTheme] = useState<ThemeSettings>({
+    layout: 'single-page',
+    colorScheme: 'system',
+    primaryColor: '#3b82f6',
+    fontFamily: 'Inter',
+    showBadge: true,
   });
   
-  // Check if user is authenticated
+  const [newEmail, setNewEmail] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  
   useEffect(() => {
-    const checkUser = async () => {
+    const checkAuth = async () => {
       try {
+        setIsLoading(true);
+        
         const { data: { user } } = await supabase.auth.getUser();
         
         if (!user) {
-          navigate("/auth");
+          navigate('/auth');
           return;
         }
         
         setUser(user);
+        
+        // Fetch profile data
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+        
+        if (profileError) {
+          console.error("Error fetching profile:", profileError);
+        } else if (profileData) {
+          setProfile({
+            name: profileData.full_name || profile.name,
+            title: profileData.title || profile.title,
+            bio: profileData.bio || profile.bio,
+            location: profileData.location || profile.location,
+            email: user.email || profile.email,
+            phone: profile.phone,
+            website: profileData.website || profile.website,
+            github: profileData.github || profile.github,
+            twitter: profileData.twitter || profile.twitter,
+            linkedin: profileData.linkedin || profile.linkedin,
+            avatarUrl: profileData.avatar_url || profile.avatarUrl,
+          });
+        }
+        
+        // Fetch theme settings
+        // This would come from a separate table in a real implementation
       } catch (error) {
-        console.error("Error checking auth status:", error);
-        navigate("/auth");
+        console.error("Error in auth check:", error);
+        toast({
+          variant: "destructive",
+          title: "Authentication Error",
+          description: "Please sign in again to continue.",
+        });
+        navigate('/auth');
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     };
     
-    checkUser();
-  }, [navigate]);
+    checkAuth();
+  }, [navigate, toast, profile.phone]);
   
   const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormProfile((prev) => ({
+    setProfile(prev => ({
       ...prev,
-      [name]: value,
+      [name]: value
     }));
   };
   
-  const handleSettingsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = e.target;
-    setSiteSettings((prev) => ({
+  const handleThemeChange = (name: string, value: string) => {
+    setTheme(prev => ({
       ...prev,
-      [name]: type === "checkbox" ? checked : value,
+      [name]: value
     }));
   };
   
-  const handleSettingsToggle = (name: string, checked: boolean) => {
-    setSiteSettings((prev) => ({
-      ...prev,
-      [name]: checked,
-    }));
-  };
-  
-  const handleSaveProfile = () => {
-    setSaveLoading(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      setSaveLoading(false);
+  const saveProfile = async () => {
+    try {
+      setIsSaving(true);
+      
+      // Update profile in Supabase
+      const { error } = await supabase
+        .from('profiles')
+        .upsert({
+          id: user?.id,
+          full_name: profile.name,
+          title: profile.title,
+          bio: profile.bio,
+          location: profile.location,
+          website: profile.website,
+          github: profile.github,
+          twitter: profile.twitter,
+          linkedin: profile.linkedin,
+          updated_at: new Date().toISOString(),
+        });
+      
+      if (error) throw error;
+      
       toast({
-        title: "Profile Saved",
-        description: "Your profile has been updated successfully.",
+        title: "Profile Updated",
+        description: "Your profile has been successfully updated.",
       });
-    }, 1000);
-  };
-  
-  const handleSaveSettings = () => {
-    setSaveLoading(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      setSaveLoading(false);
+    } catch (error: any) {
+      console.error("Error updating profile:", error);
       toast({
-        title: "Settings Saved",
-        description: "Your website settings have been updated successfully.",
+        variant: "destructive",
+        title: "Update Failed",
+        description: error.message || "Failed to update profile.",
       });
-    }, 1000);
+    } finally {
+      setIsSaving(false);
+    }
   };
   
-  if (loading) {
+  const saveTheme = async () => {
+    try {
+      setIsSaving(true);
+      
+      // Update theme settings in Supabase
+      // This would be a separate table in a real implementation
+      
+      toast({
+        title: "Theme Updated",
+        description: "Your theme settings have been successfully updated.",
+      });
+    } catch (error: any) {
+      console.error("Error updating theme:", error);
+      toast({
+        variant: "destructive",
+        title: "Update Failed",
+        description: error.message || "Failed to update theme settings.",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  
+  const changeEmail = async () => {
+    try {
+      setIsSaving(true);
+      
+      // Call Supabase auth API to update email
+      const { error } = await supabase.auth.updateUser({ email: newEmail });
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Verification Email Sent",
+        description: "Please check your new email address to confirm the change.",
+      });
+      
+      setNewEmail('');
+    } catch (error: any) {
+      console.error("Error changing email:", error);
+      toast({
+        variant: "destructive",
+        title: "Email Change Failed",
+        description: error.message || "Failed to change email address.",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  
+  const changePassword = async () => {
+    try {
+      setIsSaving(true);
+      
+      if (newPassword !== confirmNewPassword) {
+        throw new Error("New passwords do not match.");
+      }
+      
+      // Call Supabase auth API to update password
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Password Updated",
+        description: "Your password has been successfully changed.",
+      });
+      
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+    } catch (error: any) {
+      console.error("Error changing password:", error);
+      toast({
+        variant: "destructive",
+        title: "Password Change Failed",
+        description: error.message || "Failed to change password.",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  
+  if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
+      <AdminLayout>
+        <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      </AdminLayout>
     );
   }
   
   return (
-    <Layout>
-      <div className="space-y-8">
-        <Tabs defaultValue="dashboard" value={selectedTab} onValueChange={setSelectedTab} className="w-full">
-          <TabsList className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 w-full mb-8">
-            <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-            <TabsTrigger value="profile">Profile</TabsTrigger>
-            <TabsTrigger value="users">Users</TabsTrigger>
-            <TabsTrigger value="site">Site Settings</TabsTrigger>
-            <TabsTrigger value="seo">SEO</TabsTrigger>
-            <TabsTrigger value="custom-code">Custom Code</TabsTrigger>
-          </TabsList>
+    <AdminLayout>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-1 md:grid-cols-4 mb-8">
+          <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+          <TabsTrigger value="profile">Profile</TabsTrigger>
+          <TabsTrigger value="theme">Theme</TabsTrigger>
+          <TabsTrigger value="security">Security</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="dashboard" className="space-y-4">
+          <DashboardStats />
           
-          {/* Dashboard Content */}
-          <TabsContent value="dashboard">
-            <DashboardStats />
-            
-            <div className="grid gap-4 grid-cols-1 md:grid-cols-2 mt-8">
-              {/* Recent Blog Posts */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Recent Blog Posts</CardTitle>
-                  <CardDescription>
-                    Your latest published articles
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="flex items-center gap-4 p-3 rounded-lg border hover:bg-accent/50 transition-colors">
-                        <div className="w-16 h-16 rounded overflow-hidden">
-                          <img 
-                            src="/placeholder.svg" 
-                            alt="Blog post" 
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        <div className="flex-1">
-                          <h4 className="font-medium">{`Blog Post ${i}`}</h4>
-                          <p className="text-sm text-muted-foreground">Published on {new Date().toLocaleDateString()}</p>
-                        </div>
-                        <div>
-                          <Badge variant="outline">{`${120 + i * 45} views`}</Badge>
-                        </div>
-                      </div>
-                    ))}
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle>User Management</CardTitle>
+              <CardDescription>Manage user roles and permissions</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <RoleManagement />
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="profile" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Profile Information</CardTitle>
+              <CardDescription>Update your profile information</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-6">
+                <div className="flex flex-col md:flex-row gap-6">
+                  <div className="flex flex-col items-center space-y-3">
+                    <Avatar className="h-24 w-24">
+                      <AvatarImage src={profile.avatarUrl} alt={profile.name} />
+                      <AvatarFallback>{profile.name.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <Button variant="outline" size="sm">Change Avatar</Button>
                   </div>
-                  <Button variant="outline" className="w-full mt-4">View All Posts</Button>
-                </CardContent>
-              </Card>
-              
-              {/* Recent Projects */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Recent Projects</CardTitle>
-                  <CardDescription>
-                    Your latest showcased projects
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {projects.slice(0, 3).map((project) => (
-                      <div key={project.id} className="flex items-center gap-4 p-3 rounded-lg border hover:bg-accent/50 transition-colors">
-                        <div className="w-16 h-16 rounded overflow-hidden">
-                          <img 
-                            src={project.imageUrl} 
-                            alt={project.title} 
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        <div className="flex-1">
-                          <h4 className="font-medium">{project.title}</h4>
-                          <div className="flex gap-2 mt-1">
-                            {project.tags.slice(0, 2).map(tag => (
-                              <Badge key={tag} variant="secondary" className="text-xs">
-                                {tag}
-                              </Badge>
-                            ))}
-                            {project.tags.length > 2 && (
-                              <Badge variant="outline" className="text-xs">
-                                +{project.tags.length - 2}
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                        {project.featured && (
-                          <Badge variant="default">Featured</Badge>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  <Button variant="outline" className="w-full mt-4">View All Projects</Button>
-                </CardContent>
-              </Card>
-            </div>
-            
-            {/* Recent Activity */}
-            <Card className="mt-8">
-              <CardHeader>
-                <CardTitle>Recent Activity</CardTitle>
-                <CardDescription>
-                  Latest updates and changes to your portfolio
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-8">
-                  {[
-                    { action: "Updated profile information", time: "2 hours ago" },
-                    { action: "Published new blog post", time: "Yesterday" },
-                    { action: "Added new project", time: "3 days ago" },
-                    { action: "Updated site settings", time: "1 week ago" },
-                    { action: "Changed theme colors", time: "2 weeks ago" },
-                  ].map((activity, i) => (
-                    <div key={i} className="flex">
-                      <div className="flex flex-col items-center mr-4">
-                        <div className="flex items-center justify-center w-10 h-10 rounded-full border border-primary/30 bg-primary/10">
-                          <svg
-                            className="w-4 h-4 text-primary"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                            xmlns="http://www.w3.org/2000/svg"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                            />
-                          </svg>
-                        </div>
-                        {i < 4 && <div className="w-px h-full bg-border" />}
-                      </div>
-                      <div className="pb-8">
-                        <p className="font-medium">{activity.action}</p>
-                        <p className="text-sm text-muted-foreground">{activity.time}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-          
-          {/* Profile Content */}
-          <TabsContent value="profile">
-            <div className="space-y-8">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Edit Profile</CardTitle>
-                  <CardDescription>
-                    Update your personal information and social links
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-6">
-                    <div className="flex flex-col sm:flex-row gap-6 items-start">
-                      <div className="flex flex-col items-center">
-                        <Avatar className="w-24 h-24">
-                          <AvatarImage src={formProfile.avatarUrl || "/placeholder.svg"} alt={formProfile.name} />
-                          <AvatarFallback>{formProfile.name.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        <Button variant="outline" size="sm" className="mt-4">
-                          Change Avatar
-                        </Button>
+                  
+                  <div className="flex-1 grid gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="name">Full Name</Label>
+                        <Input 
+                          id="name" 
+                          name="name" 
+                          value={profile.name}
+                          onChange={handleProfileChange}
+                        />
                       </div>
                       
-                      <div className="space-y-4 flex-1">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <Label htmlFor="name">Full Name</Label>
-                            <Input
-                              id="name"
-                              name="name"
-                              value={formProfile.name}
-                              onChange={handleProfileChange}
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="title">Professional Title</Label>
-                            <Input
-                              id="title"
-                              name="title"
-                              value={formProfile.title}
-                              onChange={handleProfileChange}
-                            />
-                          </div>
-                        </div>
-                        
-                        <div>
-                          <Label htmlFor="bio">Bio</Label>
-                          <Textarea
-                            id="bio"
-                            name="bio"
-                            value={formProfile.bio}
-                            onChange={handleProfileChange}
-                            rows={4}
-                          />
-                        </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="title">Professional Title</Label>
+                        <Input 
+                          id="title" 
+                          name="title" 
+                          value={profile.title}
+                          onChange={handleProfileChange}
+                        />
                       </div>
                     </div>
                     
+                    <div className="space-y-2">
+                      <Label htmlFor="bio">Bio</Label>
+                      <Textarea 
+                        id="bio" 
+                        name="bio" 
+                        value={profile.bio}
+                        onChange={handleProfileChange}
+                        rows={3} 
+                      />
+                    </div>
+                    
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
+                      <div className="space-y-2">
                         <Label htmlFor="location">Location</Label>
-                        <Input
-                          id="location"
-                          name="location"
-                          value={formProfile.location}
+                        <Input 
+                          id="location" 
+                          name="location" 
+                          value={profile.location}
                           onChange={handleProfileChange}
                         />
                       </div>
-                      <div>
-                        <Label htmlFor="email">Email Address</Label>
-                        <Input
-                          id="email"
-                          name="email"
-                          type="email"
-                          value={formProfile.email}
-                          onChange={handleProfileChange}
-                        />
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
+                      
+                      <div className="space-y-2">
                         <Label htmlFor="phone">Phone Number</Label>
-                        <Input
-                          id="phone"
-                          name="phone"
-                          value={formProfile.phone}
+                        <Input 
+                          id="phone" 
+                          name="phone" 
+                          value={profile.phone}
                           onChange={handleProfileChange}
                         />
                       </div>
-                      <div>
-                        <Label htmlFor="website">Website</Label>
-                        <Input
-                          id="website"
-                          name="website"
-                          value={formProfile.website}
-                          onChange={handleProfileChange}
-                        />
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                        <Label htmlFor="github">GitHub</Label>
-                        <Input
-                          id="github"
-                          name="github"
-                          value={formProfile.github}
-                          onChange={handleProfileChange}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="twitter">Twitter</Label>
-                        <Input
-                          id="twitter"
-                          name="twitter"
-                          value={formProfile.twitter}
-                          onChange={handleProfileChange}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="linkedin">LinkedIn</Label>
-                        <Input
-                          id="linkedin"
-                          name="linkedin"
-                          value={formProfile.linkedin}
-                          onChange={handleProfileChange}
-                        />
-                      </div>
-                    </div>
-                    
-                    <div className="flex justify-end">
-                      <Button 
-                        onClick={handleSaveProfile}
-                        disabled={saveLoading}
-                      >
-                        {saveLoading ? "Saving..." : "Save Profile"}
-                      </Button>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-          
-          {/* Users Content */}
-          <TabsContent value="users">
-            <RoleManagement />
-          </TabsContent>
-          
-          {/* Site Settings Content */}
-          <TabsContent value="site">
-            <div className="space-y-8">
-              <Card>
-                <CardHeader>
-                  <CardTitle>General Settings</CardTitle>
-                  <CardDescription>
-                    Configure your website's general settings
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <Label htmlFor="siteName">Site Name</Label>
-                        <Input
-                          id="siteName"
-                          name="siteName"
-                          value={siteSettings.siteName}
-                          onChange={handleSettingsChange}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="siteLanguage">Site Language</Label>
-                        <select 
-                          id="siteLanguage"
-                          name="siteLanguage"
-                          value={siteSettings.siteLanguage}
-                          onChange={handleSettingsChange}
-                          className="w-full p-2 border rounded-md"
-                        >
-                          <option value="en">English</option>
-                          <option value="es">Spanish</option>
-                          <option value="fr">French</option>
-                          <option value="de">German</option>
-                        </select>
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="siteDescription">Site Description</Label>
-                      <Textarea
-                        id="siteDescription"
-                        name="siteDescription"
-                        value={siteSettings.siteDescription}
-                        onChange={handleSettingsChange}
-                        rows={3}
-                      />
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="customDomain">Custom Domain</Label>
-                      <Input
-                        id="customDomain"
-                        name="customDomain"
-                        value={siteSettings.customDomain}
-                        onChange={handleSettingsChange}
-                      />
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Enter your custom domain without http:// or https://
-                      </p>
-                    </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="website">Website</Label>
+                    <Input 
+                      id="website" 
+                      name="website" 
+                      value={profile.website}
+                      onChange={handleProfileChange}
+                    />
                   </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle>Features & Display</CardTitle>
-                  <CardDescription>
-                    Control what features are enabled on your site
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-medium">Enable Blog</h4>
-                        <p className="text-sm text-muted-foreground">
-                          Show blog posts section on your portfolio
-                        </p>
-                      </div>
-                      <Switch
-                        checked={siteSettings.enableBlog}
-                        onCheckedChange={(checked) => handleSettingsToggle("enableBlog", checked)}
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email Address</Label>
+                    <Input 
+                      id="email" 
+                      name="email" 
+                      value={profile.email}
+                      onChange={handleProfileChange}
+                      disabled
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      To change your email, go to Security tab
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Social Links</Label>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="github">GitHub</Label>
+                      <Input 
+                        id="github" 
+                        name="github" 
+                        value={profile.github}
+                        onChange={handleProfileChange}
                       />
                     </div>
                     
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-medium">Allow Comments</h4>
-                        <p className="text-sm text-muted-foreground">
-                          Enable comments on blog posts
-                        </p>
-                      </div>
-                      <Switch
-                        checked={siteSettings.allowComments}
-                        onCheckedChange={(checked) => handleSettingsToggle("allowComments", checked)}
+                    <div className="space-y-2">
+                      <Label htmlFor="twitter">Twitter</Label>
+                      <Input 
+                        id="twitter" 
+                        name="twitter" 
+                        value={profile.twitter}
+                        onChange={handleProfileChange}
                       />
                     </div>
                     
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-medium">Show Project Stats</h4>
-                        <p className="text-sm text-muted-foreground">
-                          Display stars, forks, and other project metrics
-                        </p>
-                      </div>
-                      <Switch
-                        checked={siteSettings.showProjectStats}
-                        onCheckedChange={(checked) => handleSettingsToggle("showProjectStats", checked)}
-                      />
-                    </div>
-                    
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-medium">Show Social Links</h4>
-                        <p className="text-sm text-muted-foreground">
-                          Display social media links in header and footer
-                        </p>
-                      </div>
-                      <Switch
-                        checked={siteSettings.showSocialLinks}
-                        onCheckedChange={(checked) => handleSettingsToggle("showSocialLinks", checked)}
-                      />
-                    </div>
-                    
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-medium">Enable Dark Mode Toggle</h4>
-                        <p className="text-sm text-muted-foreground">
-                          Allow visitors to switch between light and dark modes
-                        </p>
-                      </div>
-                      <Switch
-                        checked={siteSettings.enableDarkMode}
-                        onCheckedChange={(checked) => handleSettingsToggle("enableDarkMode", checked)}
-                      />
-                    </div>
-                    
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-medium">Use Single Page Layout</h4>
-                        <p className="text-sm text-muted-foreground">
-                          Show all content on a single scrollable page
-                        </p>
-                      </div>
-                      <Switch
-                        checked={siteSettings.useSinglePage}
-                        onCheckedChange={(checked) => handleSettingsToggle("useSinglePage", checked)}
+                    <div className="space-y-2">
+                      <Label htmlFor="linkedin">LinkedIn</Label>
+                      <Input 
+                        id="linkedin" 
+                        name="linkedin" 
+                        value={profile.linkedin}
+                        onChange={handleProfileChange}
                       />
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-              
-              <div className="flex justify-end">
-                <Button 
-                  onClick={handleSaveSettings}
-                  disabled={saveLoading}
-                >
-                  {saveLoading ? "Saving..." : "Save Settings"}
-                </Button>
+                </div>
+                
+                <div className="flex justify-end">
+                  <Button onClick={saveProfile} disabled={isSaving}>
+                    {isSaving ? "Saving..." : "Save Changes"}
+                  </Button>
+                </div>
               </div>
-            </div>
-          </TabsContent>
-          
-          {/* SEO Content */}
-          <TabsContent value="seo">
-            <Card>
-              <CardHeader>
-                <CardTitle>SEO Settings</CardTitle>
-                <CardDescription>
-                  Optimize your site for search engines
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  <div>
-                    <Label htmlFor="metaTitle">Meta Title</Label>
-                    <Input
-                      id="metaTitle"
-                      placeholder="Enter meta title"
-                    />
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Recommended length: 50-60 characters
-                    </p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="theme" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Portfolio Theme</CardTitle>
+              <CardDescription>Customize the look and feel of your portfolio</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="layout">Layout</Label>
+                    <Select 
+                      value={theme.layout} 
+                      onValueChange={(value) => handleThemeChange('layout', value)}
+                    >
+                      <SelectTrigger id="layout">
+                        <SelectValue placeholder="Select layout" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="single-page">Single Page</SelectItem>
+                        <SelectItem value="multi-page">Multi Page</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   
-                  <div>
-                    <Label htmlFor="metaDescription">Meta Description</Label>
-                    <Textarea
-                      id="metaDescription"
-                      placeholder="Enter meta description"
-                      rows={3}
-                    />
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Recommended length: 140-160 characters
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="ogImage">Open Graph Image</Label>
-                    <div className="mt-1 flex items-center">
-                      <div className="w-32 h-32 rounded border flex items-center justify-center overflow-hidden">
-                        <img 
-                          src="/placeholder.svg" 
-                          alt="OG Image" 
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <Button variant="outline" size="sm" className="ml-4">
-                        Upload Image
-                      </Button>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Recommended size: 1200 x 630 pixels
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="keywords">Meta Keywords</Label>
-                    <Input
-                      id="keywords"
-                      placeholder="e.g., developer, portfolio, web development"
-                    />
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Separate keywords with commas
-                    </p>
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-medium">Generate Sitemap</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Automatically create a sitemap for search engines
-                      </p>
-                    </div>
-                    <Switch defaultChecked={true} />
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-medium">Structured Data</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Include structured data for rich search results
-                      </p>
-                    </div>
-                    <Switch defaultChecked={true} />
-                  </div>
-                  
-                  <div className="flex justify-end">
-                    <Button>Save SEO Settings</Button>
+                  <div className="space-y-2">
+                    <Label htmlFor="colorScheme">Color Scheme</Label>
+                    <Select 
+                      value={theme.colorScheme} 
+                      onValueChange={(value) => handleThemeChange('colorScheme', value)}
+                    >
+                      <SelectTrigger id="colorScheme">
+                        <SelectValue placeholder="Select color scheme" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="light">Light</SelectItem>
+                        <SelectItem value="dark">Dark</SelectItem>
+                        <SelectItem value="system">System</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-          
-          {/* Custom Code Content */}
-          <TabsContent value="custom-code">
-            <Card>
-              <CardHeader>
-                <CardTitle>Custom Code</CardTitle>
-                <CardDescription>
-                  Add custom HTML, CSS, or JavaScript to your site
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  <div>
-                    <Label htmlFor="customCss">Custom CSS</Label>
-                    <Textarea
-                      id="customCss"
-                      placeholder="Enter your custom CSS here"
-                      className="font-mono text-sm"
-                      rows={6}
-                    />
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="primaryColor">Primary Color</Label>
+                    <div className="flex gap-2 items-center">
+                      <Input 
+                        id="primaryColor" 
+                        name="primaryColor" 
+                        type="color" 
+                        value={theme.primaryColor}
+                        onChange={(e) => handleThemeChange('primaryColor', e.target.value)}
+                        className="w-12 h-9 p-1"
+                      />
+                      <Input 
+                        type="text" 
+                        value={theme.primaryColor}
+                        onChange={(e) => handleThemeChange('primaryColor', e.target.value)}
+                        className="flex-1"
+                      />
+                    </div>
                   </div>
                   
-                  <div>
-                    <Label htmlFor="headerScripts">Header Scripts</Label>
-                    <Textarea
-                      id="headerScripts"
-                      placeholder="Enter scripts to be included in the <head> section"
-                      className="font-mono text-sm"
-                      rows={6}
-                    />
-                    <p className="text-sm text-muted-foreground mt-1">
-                      These scripts will be added to the &lt;head&gt; section of your site
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="footerScripts">Footer Scripts</Label>
-                    <Textarea
-                      id="footerScripts"
-                      placeholder="Enter scripts to be included at the end of the <body> section"
-                      className="font-mono text-sm"
-                      rows={6}
-                    />
-                    <p className="text-sm text-muted-foreground mt-1">
-                      These scripts will be added right before the closing &lt;/body&gt; tag
-                    </p>
-                  </div>
-                  
-                  <div className="flex justify-end">
-                    <Button>Save Custom Code</Button>
+                  <div className="space-y-2">
+                    <Label htmlFor="fontFamily">Font Family</Label>
+                    <Select 
+                      value={theme.fontFamily} 
+                      onValueChange={(value) => handleThemeChange('fontFamily', value)}
+                    >
+                      <SelectTrigger id="fontFamily">
+                        <SelectValue placeholder="Select font family" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Inter">Inter</SelectItem>
+                        <SelectItem value="Roboto">Roboto</SelectItem>
+                        <SelectItem value="Poppins">Poppins</SelectItem>
+                        <SelectItem value="Lato">Lato</SelectItem>
+                        <SelectItem value="Open Sans">Open Sans</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </div>
-    </Layout>
+                
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="showBadge"
+                    checked={theme.showBadge}
+                    onChange={(e) => handleThemeChange('showBadge', e.target.checked.toString())}
+                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  />
+                  <Label htmlFor="showBadge">Show "Made with Lovable" badge</Label>
+                </div>
+                
+                <div className="flex justify-end">
+                  <Button onClick={saveTheme} disabled={isSaving}>
+                    {isSaving ? "Saving..." : "Save Theme"}
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="security" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Email Address</CardTitle>
+              <CardDescription>Update your email address</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="currentEmail">Current Email</Label>
+                  <Input id="currentEmail" value={profile.email} disabled />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="newEmail">New Email</Label>
+                  <Input 
+                    id="newEmail" 
+                    value={newEmail}
+                    onChange={(e) => setNewEmail(e.target.value)}
+                  />
+                </div>
+                
+                <div className="flex justify-end">
+                  <Button onClick={changeEmail} disabled={isSaving || !newEmail}>
+                    {isSaving ? "Saving..." : "Change Email"}
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle>Password</CardTitle>
+              <CardDescription>Update your password</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="newPassword">New Password</Label>
+                  <Input 
+                    id="newPassword" 
+                    type="password" 
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                  <Input 
+                    id="confirmPassword" 
+                    type="password" 
+                    value={confirmNewPassword}
+                    onChange={(e) => setConfirmNewPassword(e.target.value)}
+                  />
+                </div>
+                
+                <div className="flex justify-end">
+                  <Button 
+                    onClick={changePassword} 
+                    disabled={isSaving || !newPassword || !confirmNewPassword || newPassword !== confirmNewPassword}
+                  >
+                    {isSaving ? "Saving..." : "Change Password"}
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle>Two-Factor Authentication</CardTitle>
+              <CardDescription>Add an extra layer of security to your account</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h4 className="text-sm font-medium">2FA Status</h4>
+                    <p className="text-sm text-muted-foreground">Not enabled</p>
+                  </div>
+                  <Button variant="outline">Setup 2FA</Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle>Sessions</CardTitle>
+              <CardDescription>Manage your active sessions</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h4 className="text-sm font-medium">Current Session</h4>
+                    <p className="text-sm text-muted-foreground">Last active just now</p>
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <Button variant="outline" onClick={() => supabase.auth.signOut()}>Sign Out</Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </AdminLayout>
   );
 }

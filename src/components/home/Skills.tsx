@@ -1,15 +1,20 @@
 
-import { useState } from 'react';
-import { skills } from "@/data/mock-data";
+import { useState, useEffect } from 'react';
 import { motion } from "framer-motion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import SkillBar from "@/components/SkillBar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, CheckCheck } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { Skill } from "@/types/portfolio";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Skills() {
+  const { toast } = useToast();
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [skills, setSkills] = useState<Skill[]>([]);
+  const [loading, setLoading] = useState(true);
   
   const categories = [
     { id: 'all', name: 'All Skills' },
@@ -18,11 +23,61 @@ export default function Skills() {
     { id: 'tools', name: 'Tools & Databases' },
   ];
 
+  // Fetch skills from Supabase
+  useEffect(() => {
+    async function fetchSkills() {
+      try {
+        setLoading(true);
+        const { data, error } = await supabase
+          .from('skills')
+          .select('*');
+        
+        if (error) {
+          throw error;
+        }
+        
+        if (data) {
+          setSkills(data as Skill[]);
+        }
+      } catch (error) {
+        console.error('Error fetching skills:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load skills data",
+          variant: "destructive"
+        });
+        // Fallback to mock data if database fetch fails
+        const { skills } = await import("@/data/mock-data");
+        setSkills(skills);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchSkills();
+  }, [toast]);
+
   const filteredSkills = selectedCategory === 'all' 
     ? skills
     : skills.filter(skill => skill.category === selectedCategory);
     
   const skillsByProficiency = [...filteredSkills].sort((a, b) => b.proficiency - a.proficiency);
+
+  if (loading) {
+    return (
+      <section id="skills" className="py-20 px-6 md:px-12">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Skills & Expertise</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">Loading skills...</p>
+          </div>
+          <div className="flex justify-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section id="skills" className="py-20 px-6 md:px-12">
