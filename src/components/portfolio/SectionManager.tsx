@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Pencil, DragVertical, Eye, EyeOff, Copy, Trash2, Plus } from 'lucide-react';
+import { Pencil, GripVertical, Eye, EyeOff, Copy, Trash2, Plus } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 // Portfolio section types
@@ -190,7 +190,7 @@ export default function SectionManager() {
                                     {...provided.dragHandleProps}
                                     className="cursor-grab"
                                   >
-                                    <DragVertical className="h-5 w-5 text-muted-foreground" />
+                                    <GripVertical className="h-5 w-5 text-muted-foreground" />
                                   </div>
                                   <div>
                                     <div className="flex items-center gap-2">

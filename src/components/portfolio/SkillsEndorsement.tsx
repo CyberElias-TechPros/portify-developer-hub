@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import SkillBar from '@/components/SkillBar';
-import { Calendar, CheckCheck, Trophy, UserPlus, ThumbsUp, Search, Plus, ArrowUpRight } from 'lucide-react';
+import { Calendar, CheckCheck, Trophy, UserPlus, ThumbsUp, Search, Plus, ArrowUpRight, Github } from 'lucide-react';
 
 interface Skill {
   id: string;
