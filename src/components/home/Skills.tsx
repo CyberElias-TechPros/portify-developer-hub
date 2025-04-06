@@ -10,17 +10,6 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Skill } from "@/types/portfolio";
 import { useToast } from "@/hooks/use-toast";
 
-// Define a type for the Supabase skill data
-interface SkillData {
-  id: string;
-  name: string;
-  category: string;
-  proficiency: number;
-  icon_url?: string;
-  year_acquired?: number;
-  endorsed?: number;
-}
-
 export default function Skills() {
   const { toast } = useToast();
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -39,7 +28,8 @@ export default function Skills() {
     async function fetchSkills() {
       try {
         setLoading(true);
-        // Use the skills table we just created
+        
+        // Get the skills table data from Supabase
         const { data, error } = await supabase
           .from('skills')
           .select('*');
@@ -50,7 +40,7 @@ export default function Skills() {
         
         if (data) {
           // Convert the database format to our app's Skill format
-          const formattedSkills: Skill[] = data.map((skill: SkillData) => ({
+          const formattedSkills: Skill[] = data.map(skill => ({
             id: skill.id,
             name: skill.name,
             // Convert string category from DB to the union type expected by Skill
@@ -70,6 +60,7 @@ export default function Skills() {
           description: "Failed to load skills data",
           variant: "destructive"
         });
+        
         // Fallback to mock data if database fetch fails
         const { skills } = await import("@/data/mock-data");
         setSkills(skills);

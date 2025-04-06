@@ -1,37 +1,95 @@
 
+import { useState, useEffect } from "react";
 import Layout from "@/components/Layout";
 import SkillBar from "@/components/SkillBar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-
-interface Skill {
-  name: string;
-  percentage: number;
-  category: "languages" | "frameworks" | "tools" | "other";
-}
-
-const skills: Skill[] = [
-  { name: "JavaScript", percentage: 90, category: "languages" },
-  { name: "TypeScript", percentage: 85, category: "languages" },
-  { name: "Python", percentage: 75, category: "languages" },
-  { name: "React", percentage: 92, category: "frameworks" },
-  { name: "Next.js", percentage: 88, category: "frameworks" },
-  { name: "Node.js", percentage: 80, category: "frameworks" },
-  { name: "Tailwind CSS", percentage: 95, category: "frameworks" },
-  { name: "Git", percentage: 85, category: "tools" },
-  { name: "Docker", percentage: 70, category: "tools" },
-  { name: "AWS", percentage: 65, category: "tools" },
-  { name: "GraphQL", percentage: 78, category: "other" },
-  { name: "REST APIs", percentage: 90, category: "other" },
-];
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import type { Skill } from "@/types/portfolio";
+import { Loader2 } from "lucide-react";
 
 const Skills = () => {
+  const { toast } = useToast();
+  const [skills, setSkills] = useState<Skill[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchSkills() {
+      try {
+        setLoading(true);
+        const { data, error } = await supabase
+          .from('skills')
+          .select('*');
+        
+        if (error) {
+          throw error;
+        }
+        
+        if (data) {
+          // Convert the database format to our app's Skill format
+          const formattedSkills: Skill[] = data.map(skill => ({
+            id: skill.id,
+            name: skill.name,
+            // Convert string category from DB to the union type expected by Skill
+            category: skill.category as "languages" | "frameworks" | "tools" | "other",
+            proficiency: skill.proficiency,
+            iconUrl: skill.icon_url,
+            yearAcquired: skill.year_acquired,
+            endorsed: skill.endorsed
+          }));
+          
+          setSkills(formattedSkills);
+        }
+      } catch (error) {
+        console.error('Error fetching skills:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load skills data",
+          variant: "destructive"
+        });
+        // Fallback to mock data if there's an error
+        setSkills([
+          { name: "JavaScript", percentage: 90, category: "languages" },
+          { name: "TypeScript", percentage: 85, category: "languages" },
+          { name: "Python", percentage: 75, category: "languages" },
+          { name: "React", percentage: 92, category: "frameworks" },
+          { name: "Next.js", percentage: 88, category: "frameworks" },
+          { name: "Node.js", percentage: 80, category: "frameworks" },
+          { name: "Tailwind CSS", percentage: 95, category: "frameworks" },
+          { name: "Git", percentage: 85, category: "tools" },
+          { name: "Docker", percentage: 70, category: "tools" },
+          { name: "AWS", percentage: 65, category: "tools" },
+          { name: "GraphQL", percentage: 78, category: "other" },
+          { name: "REST APIs", percentage: 90, category: "other" },
+        ] as Skill[]);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchSkills();
+  }, [toast]);
+
   const categories = {
     languages: skills.filter(skill => skill.category === "languages"),
     frameworks: skills.filter(skill => skill.category === "frameworks"),
     tools: skills.filter(skill => skill.category === "tools"),
     other: skills.filter(skill => skill.category === "other"),
   };
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="container py-12 px-4 md:px-6 flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <Loader2 className="h-12 w-12 animate-spin mx-auto text-primary mb-4" />
+            <p className="text-lg text-muted-foreground">Loading skills...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
@@ -64,9 +122,9 @@ const Skills = () => {
                 <CardContent>
                   {categories.languages.map((skill, index) => (
                     <SkillBar
-                      key={skill.name}
+                      key={skill.id}
                       name={skill.name}
-                      percentage={skill.percentage}
+                      percentage={skill.proficiency}
                       delay={index * 100}
                     />
                   ))}
@@ -81,9 +139,9 @@ const Skills = () => {
                 <CardContent>
                   {categories.frameworks.map((skill, index) => (
                     <SkillBar
-                      key={skill.name}
+                      key={skill.id}
                       name={skill.name}
-                      percentage={skill.percentage}
+                      percentage={skill.proficiency}
                       delay={index * 100}
                     />
                   ))}
@@ -98,9 +156,9 @@ const Skills = () => {
                 <CardContent>
                   {categories.tools.map((skill, index) => (
                     <SkillBar
-                      key={skill.name}
+                      key={skill.id}
                       name={skill.name}
-                      percentage={skill.percentage}
+                      percentage={skill.proficiency}
                       delay={index * 100}
                     />
                   ))}
@@ -115,9 +173,9 @@ const Skills = () => {
                 <CardContent>
                   {categories.other.map((skill, index) => (
                     <SkillBar
-                      key={skill.name}
+                      key={skill.id}
                       name={skill.name}
-                      percentage={skill.percentage}
+                      percentage={skill.proficiency}
                       delay={index * 100}
                     />
                   ))}
@@ -134,9 +192,9 @@ const Skills = () => {
                 <CardContent>
                   {categories.languages.map((skill, index) => (
                     <SkillBar
-                      key={skill.name}
+                      key={skill.id}
                       name={skill.name}
-                      percentage={skill.percentage}
+                      percentage={skill.proficiency}
                       delay={index * 100}
                     />
                   ))}
@@ -153,9 +211,9 @@ const Skills = () => {
                 <CardContent>
                   {categories.frameworks.map((skill, index) => (
                     <SkillBar
-                      key={skill.name}
+                      key={skill.id}
                       name={skill.name}
-                      percentage={skill.percentage}
+                      percentage={skill.proficiency}
                       delay={index * 100}
                     />
                   ))}
@@ -172,9 +230,9 @@ const Skills = () => {
                 <CardContent>
                   {categories.tools.map((skill, index) => (
                     <SkillBar
-                      key={skill.name}
+                      key={skill.id}
                       name={skill.name}
-                      percentage={skill.percentage}
+                      percentage={skill.proficiency}
                       delay={index * 100}
                     />
                   ))}
@@ -191,9 +249,9 @@ const Skills = () => {
                 <CardContent>
                   {categories.other.map((skill, index) => (
                     <SkillBar
-                      key={skill.name}
+                      key={skill.id}
                       name={skill.name}
-                      percentage={skill.percentage}
+                      percentage={skill.proficiency}
                       delay={index * 100}
                     />
                   ))}
