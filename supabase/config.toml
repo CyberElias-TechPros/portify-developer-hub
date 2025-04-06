@@ -3,3 +3,6 @@ project_id = "ojpygyznnaxxoniqdmxh"
 
 [functions.contact-submit]
 verify_jwt = false
+
+[functions.seed-skills]
+verify_jwt = false

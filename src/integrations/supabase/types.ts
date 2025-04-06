@@ -81,6 +81,74 @@ export type Database = {
         }
         Relationships: []
       }
+      skill_endorsements: {
+        Row: {
+          created_at: string | null
+          endorser_id: string | null
+          id: string
+          skill_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          endorser_id?: string | null
+          id?: string
+          skill_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          endorser_id?: string | null
+          id?: string
+          skill_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "skill_endorsements_skill_id_fkey"
+            columns: ["skill_id"]
+            isOneToOne: false
+            referencedRelation: "skills"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      skills: {
+        Row: {
+          category: string
+          created_at: string | null
+          endorsed: number | null
+          icon_url: string | null
+          id: string
+          name: string
+          proficiency: number
+          updated_at: string | null
+          user_id: string | null
+          year_acquired: number | null
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          endorsed?: number | null
+          icon_url?: string | null
+          id?: string
+          name: string
+          proficiency: number
+          updated_at?: string | null
+          user_id?: string | null
+          year_acquired?: number | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          endorsed?: number | null
+          icon_url?: string | null
+          id?: string
+          name?: string
+          proficiency?: number
+          updated_at?: string | null
+          user_id?: string | null
+          year_acquired?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

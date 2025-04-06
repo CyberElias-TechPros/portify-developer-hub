@@ -7,8 +7,19 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, CheckCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { Skill } from "@/types/portfolio";
+import type { Skill } from "@/types/portfolio";
 import { useToast } from "@/hooks/use-toast";
+
+// Define a type for the Supabase skill data
+interface SkillData {
+  id: string;
+  name: string;
+  category: string;
+  proficiency: number;
+  icon_url?: string;
+  year_acquired?: number;
+  endorsed?: number;
+}
 
 export default function Skills() {
   const { toast } = useToast();
@@ -28,6 +39,7 @@ export default function Skills() {
     async function fetchSkills() {
       try {
         setLoading(true);
+        // Use the skills table we just created
         const { data, error } = await supabase
           .from('skills')
           .select('*');
@@ -37,7 +49,19 @@ export default function Skills() {
         }
         
         if (data) {
-          setSkills(data as Skill[]);
+          // Convert the database format to our app's Skill format
+          const formattedSkills: Skill[] = data.map((skill: SkillData) => ({
+            id: skill.id,
+            name: skill.name,
+            // Convert string category from DB to the union type expected by Skill
+            category: skill.category as "languages" | "frameworks" | "tools" | "other",
+            proficiency: skill.proficiency,
+            iconUrl: skill.icon_url,
+            yearAcquired: skill.year_acquired,
+            endorsed: skill.endorsed
+          }));
+          
+          setSkills(formattedSkills);
         }
       } catch (error) {
         console.error('Error fetching skills:', error);
