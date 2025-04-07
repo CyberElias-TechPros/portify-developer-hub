@@ -196,3 +196,12 @@ export interface SiteSetting {
   createdAt?: string;
   updatedAt?: string;
 }
+
+// Create a custom type for using Supabase directly with these tables
+export interface CustomSupabaseClient {
+  from(table: 'site_settings'): any;
+  from(table: 'projects'): any;
+  from(table: 'blog_posts'): any;
+  from(table: 'experiences'): any;
+  from(table: string): any;
+}

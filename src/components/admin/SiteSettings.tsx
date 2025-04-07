@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import { SiteSetting } from "@/types/portfolio";
 
 interface ContactInfo {
   email: string;
@@ -88,7 +89,7 @@ export default function SiteSettings() {
         // Fetch contact info
         const { data: contactData, error: contactError } = await supabase
           .from('site_settings')
-          .select('value')
+          .select('*')
           .eq('key', 'contact_info')
           .single();
         
@@ -103,7 +104,7 @@ export default function SiteSettings() {
         // Fetch social links
         const { data: socialData, error: socialError } = await supabase
           .from('site_settings')
-          .select('value')
+          .select('*')
           .eq('key', 'social_links')
           .single();
         
@@ -118,7 +119,7 @@ export default function SiteSettings() {
         // Fetch site info
         const { data: siteData, error: siteError } = await supabase
           .from('site_settings')
-          .select('value')
+          .select('*')
           .eq('key', 'site_info')
           .single();
         

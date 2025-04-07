@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import ContactConfirmationDialog from "@/components/ContactConfirmationDialog";
+import { SiteSetting } from "@/types/portfolio";
 
 const Contact = () => {
   const { toast } = useToast();

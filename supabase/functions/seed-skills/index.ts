@@ -1,374 +1,304 @@
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.29.0";
 
-// Define the Supabase URL and key from environment variables
-const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-
-// Define types for our data models
-interface Skill {
-  name: string;
-  category: string;
-  proficiency: number;
-  icon_url?: string;
-  year_acquired?: number;
-  endorsed?: number;
-}
-
-interface Project {
-  title: string;
-  description: string;
-  long_description?: string;
-  tags: string[];
-  image_url: string;
-  repo_url: string;
-  demo_url?: string;
-  featured: boolean;
-  stars?: number;
-  forks?: number;
-  contributors?: number;
-  category?: string;
-}
-
-interface Experience {
-  company: string;
-  position: string;
-  start_date: string;
-  end_date: string | null;
-  description: string;
-  logo_url?: string;
-  location: string;
-  technologies?: string[];
-  projects?: string[];
-}
-
-interface BlogPost {
-  title: string;
-  content: string;
-  excerpt: string;
-  slug: string;
-  publish_date: string;
-  tags: string[];
-  cover_image_url?: string;
-  category?: string;
-  series?: string;
-  reading_time?: number;
-  published: boolean;
-}
-
-interface SiteSettings {
-  key: string;
-  value: Record<string, any>;
-}
-
-// Define CORS headers
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-Deno.serve(async (req) => {
+serve(async (req) => {
   // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 204,
-      headers: corsHeaders,
-    });
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
   }
-
+  
   try {
-    // Create Supabase client
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    // Create a Supabase client with the Deno runtime key
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
     
-    // Define the skill data
-    const skills: Skill[] = [
-      { name: "JavaScript", category: "languages", proficiency: 90, icon_url: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/javascript/javascript-original.svg", year_acquired: 2015, endorsed: 32 },
-      { name: "TypeScript", category: "languages", proficiency: 85, icon_url: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/typescript/typescript-original.svg", year_acquired: 2017, endorsed: 27 },
-      { name: "Python", category: "languages", proficiency: 75, icon_url: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg", year_acquired: 2018, endorsed: 18 },
-      { name: "React", category: "frameworks", proficiency: 92, icon_url: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/react/react-original.svg", year_acquired: 2016, endorsed: 45 },
-      { name: "Next.js", category: "frameworks", proficiency: 88, icon_url: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/nextjs/nextjs-original.svg", year_acquired: 2019, endorsed: 36 },
-      { name: "Node.js", category: "frameworks", proficiency: 80, icon_url: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/nodejs/nodejs-original.svg", year_acquired: 2016, endorsed: 29 },
-      { name: "Tailwind CSS", category: "frameworks", proficiency: 95, icon_url: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/tailwindcss/tailwindcss-plain.svg", year_acquired: 2020, endorsed: 41 },
-      { name: "Git", category: "tools", proficiency: 85, icon_url: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/git/git-original.svg", year_acquired: 2015, endorsed: 22 },
-      { name: "Docker", category: "tools", proficiency: 70, icon_url: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/docker/docker-original.svg", year_acquired: 2019, endorsed: 15 },
-      { name: "AWS", category: "tools", proficiency: 65, icon_url: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/amazonwebservices/amazonwebservices-original.svg", year_acquired: 2018, endorsed: 12 },
-      { name: "GraphQL", category: "other", proficiency: 78, icon_url: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/graphql/graphql-plain.svg", year_acquired: 2019, endorsed: 20 },
-      { name: "REST APIs", category: "other", proficiency: 90, icon_url: null, year_acquired: 2015, endorsed: 25 }
+    // Seed skills
+    const skillsData = [
+      {
+        name: "JavaScript",
+        category: "languages",
+        proficiency: 90,
+        iconUrl: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/javascript/javascript-original.svg",
+        yearAcquired: 2018
+      },
+      {
+        name: "TypeScript",
+        category: "languages",
+        proficiency: 85,
+        iconUrl: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/typescript/typescript-original.svg",
+        yearAcquired: 2019
+      },
+      {
+        name: "React",
+        category: "frameworks",
+        proficiency: 92,
+        iconUrl: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/react/react-original.svg",
+        yearAcquired: 2018
+      },
+      {
+        name: "Next.js",
+        category: "frameworks",
+        proficiency: 88,
+        iconUrl: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/nextjs/nextjs-original.svg",
+        yearAcquired: 2020
+      },
+      {
+        name: "Node.js",
+        category: "frameworks",
+        proficiency: 85,
+        iconUrl: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/nodejs/nodejs-original.svg",
+        yearAcquired: 2018
+      },
+      {
+        name: "GraphQL",
+        category: "tools",
+        proficiency: 80,
+        iconUrl: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/graphql/graphql-plain.svg",
+        yearAcquired: 2020
+      },
+      {
+        name: "Docker",
+        category: "tools",
+        proficiency: 75,
+        iconUrl: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/docker/docker-original.svg",
+        yearAcquired: 2021
+      },
+      {
+        name: "AWS",
+        category: "tools",
+        proficiency: 78,
+        iconUrl: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/amazonwebservices/amazonwebservices-original.svg",
+        yearAcquired: 2020
+      }
     ];
-
-    // Define project data
-    const projects: Project[] = [
+    
+    // Insert skills
+    const { error: skillsError } = await supabaseClient
+      .from('skills')
+      .upsert(skillsData, { onConflict: 'name' });
+      
+    if (skillsError) {
+      throw skillsError;
+    }
+    
+    // Seed projects
+    const projectsData = [
       {
         title: "Portfolio Website",
         description: "Personal portfolio website built with React and Tailwind CSS",
-        long_description: "A modern, responsive portfolio website showcasing my skills, projects, and experience. Built with React, TypeScript, and Tailwind CSS. Features include dark mode support, contact form, and blog integration.",
+        long_description: "A responsive portfolio website showcasing my projects and skills. Built with React, Tailwind CSS, and Framer Motion for animations.",
         tags: ["React", "TypeScript", "Tailwind CSS"],
-        image_url: "/placeholder.svg",
+        image_url: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97",
         repo_url: "https://github.com/username/portfolio",
-        demo_url: "https://portfolio.example.com",
+        demo_url: "https://username-portfolio.vercel.app",
         featured: true,
-        stars: 24,
-        forks: 8,
-        contributors: 2,
-        category: "web"
-      },
-      {
-        title: "E-commerce Platform",
-        description: "Full-stack e-commerce application with payment integration",
-        long_description: "Complete e-commerce solution with product catalog, shopping cart, user authentication, and Stripe payment integration. Built with Next.js, PostgreSQL, and Tailwind CSS.",
-        tags: ["Next.js", "PostgreSQL", "Stripe", "Supabase"],
-        image_url: "/placeholder.svg",
-        repo_url: "https://github.com/username/ecommerce",
-        demo_url: "https://ecommerce.example.com",
-        featured: true,
-        stars: 56,
-        forks: 17,
-        contributors: 4,
-        category: "web"
-      },
-      {
-        title: "Task Management App",
-        description: "Kanban-style task management application",
-        long_description: "Productivity tool for managing tasks with kanban boards, drag-and-drop interface, and team collaboration features. Built with React, Redux, and Firebase.",
-        tags: ["React", "Redux", "Firebase"],
-        image_url: "/placeholder.svg",
-        repo_url: "https://github.com/username/taskmanager",
-        demo_url: "https://tasks.example.com",
-        featured: true,
-        stars: 38,
-        forks: 12,
-        contributors: 3,
-        category: "productivity"
-      },
-      {
-        title: "Weather Dashboard",
-        description: "Real-time weather data visualization",
-        long_description: "Weather forecast application with real-time data from OpenWeather API. Features include current conditions, 5-day forecast, location search, and temperature unit conversion.",
-        tags: ["JavaScript", "API", "CSS"],
-        image_url: "/placeholder.svg",
-        repo_url: "https://github.com/username/weather",
-        demo_url: "https://weather.example.com",
-        featured: false,
         stars: 15,
         forks: 5,
         contributors: 1,
-        category: "utility"
+        category: "Web Development"
       },
       {
-        title: "Recipe Finder",
-        description: "Search and save recipes from multiple sources",
-        long_description: "Recipe discovery application that allows users to search for recipes by ingredient, save favorites, and create shopping lists. Integrates with multiple recipe APIs.",
-        tags: ["React", "Node.js", "MongoDB"],
-        image_url: "/placeholder.svg",
-        repo_url: "https://github.com/username/recipes",
-        demo_url: "https://recipes.example.com",
-        featured: false,
-        stars: 22,
-        forks: 7,
-        contributors: 2,
-        category: "lifestyle"
+        title: "E-commerce Platform",
+        description: "Fully functional e-commerce site with payment integration",
+        long_description: "A comprehensive e-commerce platform built with Next.js, featuring product catalog, shopping cart, and Stripe payment integration.",
+        tags: ["Next.js", "Redux", "Stripe", "MongoDB"],
+        image_url: "https://images.unsplash.com/photo-1563013544-824ae1b704d3",
+        repo_url: "https://github.com/username/ecommerce",
+        demo_url: "https://demo-store.vercel.app",
+        featured: true,
+        stars: 28,
+        forks: 12,
+        contributors: 3,
+        category: "Web Development"
+      },
+      {
+        title: "Weather App",
+        description: "Real-time weather forecast application",
+        long_description: "A weather application that provides real-time forecasts based on location. Uses OpenWeather API and Mapbox for geolocation.",
+        tags: ["React", "API", "Geolocation"],
+        image_url: "https://images.unsplash.com/photo-1530908295418-a12e326966ba",
+        repo_url: "https://github.com/username/weather-app",
+        demo_url: "https://weather.example.com",
+        featured: true,
+        stars: 10,
+        forks: 2,
+        contributors: 1,
+        category: "Web Application"
       }
     ];
-
-    // Define experience data
-    const experiences: Experience[] = [
+    
+    // Insert projects
+    const { error: projectsError } = await supabaseClient
+      .from('projects')
+      .upsert(projectsData, { onConflict: 'title' });
+      
+    if (projectsError) {
+      throw projectsError;
+    }
+    
+    // Seed blog posts
+    const blogPostsData = [
+      {
+        title: "Getting Started with React Hooks",
+        content: "React Hooks were introduced in React 16.8 as a way to use state and other React features without writing a class. In this post, we'll explore the basics of React Hooks and how to use them effectively in your applications.\n\n## What are React Hooks?\n\nHooks are functions that let you \"hook into\" React state and lifecycle features from function components. They don't work inside classes — they let you use React without classes.\n\n## useState Hook\n\nThe useState hook lets you add state to functional components. Here's a simple example:\n\n```jsx\nimport React, { useState } from 'react';\n\nfunction Counter() {\n  const [count, setCount] = useState(0);\n  \n  return (\n    <div>\n      <p>You clicked {count} times</p>\n      <button onClick={() => setCount(count + 1)}>\n        Click me\n      </button>\n    </div>\n  );\n}\n```\n\n## useEffect Hook\n\nThe useEffect hook lets you perform side effects in function components. It serves the same purpose as componentDidMount, componentDidUpdate, and componentWillUnmount in React classes.\n\n```jsx\nimport React, { useState, useEffect } from 'react';\n\nfunction Example() {\n  const [count, setCount] = useState(0);\n\n  // Similar to componentDidMount and componentDidUpdate\n  useEffect(() => {\n    document.title = `You clicked ${count} times`;\n  });\n\n  return (\n    <div>\n      <p>You clicked {count} times</p>\n      <button onClick={() => setCount(count + 1)}>\n        Click me\n      </button>\n    </div>\n  );\n}\n```\n\n## Conclusion\n\nReact Hooks provide a more direct API to the React concepts you already know: props, state, context, refs, and lifecycle. They also offer a new powerful way to compose behavior in your components.",
+        excerpt: "Learn how to use React Hooks to add state and other React features to functional components.",
+        slug: "getting-started-with-react-hooks",
+        publish_date: new Date().toISOString(),
+        tags: ["React", "JavaScript", "Web Development"],
+        cover_image_url: "https://images.unsplash.com/photo-1587620962725-abab7fe55159",
+        category: "Frontend Development",
+        series: "React Fundamentals",
+        reading_time: 8,
+        published: true
+      },
+      {
+        title: "Introduction to TypeScript",
+        content: "TypeScript is a strongly typed programming language that builds on JavaScript, giving you better tooling at any scale. In this post, we'll cover the basics of TypeScript and why you might want to use it in your projects.\n\n## What is TypeScript?\n\nTypeScript is a superset of JavaScript that adds static type definitions. Types provide a way to describe the shape of an object, providing better documentation, and allowing TypeScript to validate that your code is working correctly.\n\n## Why Use TypeScript?\n\nThere are several reasons to use TypeScript:\n\n- **Type Safety**: Catch errors at compile time instead of runtime\n- **Better IDE Support**: Get intelligent code completion, navigation, and refactoring\n- **Improved Readability**: Types serve as documentation\n- **Easier Refactoring**: Make changes with confidence\n\n## Basic Types\n\nHere are some of the basic types in TypeScript:\n\n```typescript\n// Boolean\nlet isDone: boolean = false;\n\n// Number\nlet decimal: number = 6;\nlet hex: number = 0xf00d;\nlet binary: number = 0b1010;\n\n// String\nlet color: string = \"blue\";\ncolor = 'red';\n\n// Array\nlet list: number[] = [1, 2, 3];\nlet fruits: Array<string> = ['apple', 'orange', 'banana'];\n\n// Tuple\nlet x: [string, number] = [\"hello\", 10];\n\n// Enum\nenum Color {Red, Green, Blue}\nlet c: Color = Color.Green;\n\n// Any\nlet notSure: any = 4;\nnotSure = \"maybe a string instead\";\n\n// Void\nfunction warnUser(): void {\n  console.log(\"This is a warning message\");\n}\n\n// Null and Undefined\nlet u: undefined = undefined;\nlet n: null = null;\n\n// Never\nfunction error(message: string): never {\n  throw new Error(message);\n}\n```\n\n## Interfaces\n\nOne of TypeScript's core principles is that type checking focuses on the shape that values have. Interfaces fulfill the role of naming these types and defining contracts within your code.\n\n```typescript\ninterface Person {\n  firstName: string;\n  lastName: string;\n  age?: number; // Optional property\n  readonly id: number; // Read-only property\n}\n\nfunction greet(person: Person) {\n  return `Hello, ${person.firstName} ${person.lastName}`;\n}\n\nlet john: Person = {\n  firstName: \"John\",\n  lastName: \"Doe\",\n  id: 1\n};\n\nconsole.log(greet(john)); // Output: Hello, John Doe\n```\n\n## Conclusion\n\nTypeScript offers a robust type system that can help catch errors early in the development process. It's particularly valuable for large codebases and teams, where maintaining code quality becomes increasingly important.",
+        excerpt: "Discover TypeScript - a strongly typed programming language that builds on JavaScript, providing better tooling at any scale.",
+        slug: "introduction-to-typescript",
+        publish_date: new Date().toISOString(),
+        tags: ["TypeScript", "JavaScript", "Programming"],
+        cover_image_url: "https://images.unsplash.com/photo-1516116216624-53e697fedbea",
+        category: "Programming",
+        series: "TypeScript Essentials",
+        reading_time: 10,
+        published: true
+      }
+    ];
+    
+    // Insert blog posts
+    const { error: blogsError } = await supabaseClient
+      .from('blog_posts')
+      .upsert(blogPostsData, { onConflict: 'slug' });
+      
+    if (blogsError) {
+      throw blogsError;
+    }
+    
+    // Seed experiences
+    const experiencesData = [
       {
         company: "Tech Innovations Inc.",
         position: "Senior Frontend Developer",
-        start_date: "2021-03-01",
+        start_date: "2021-06-01",
         end_date: null,
-        description: "Leading the frontend development team, implementing new features and optimizing performance for the company's main product. Introduced TypeScript and component testing to improve code quality and reliability.",
-        logo_url: "/placeholder.svg",
+        description: "Leading frontend development for enterprise applications. Implementing modern web technologies and best practices for scalable applications.",
+        logo_url: "https://logo.clearbit.com/techinnovations.example.com",
         location: "San Francisco, CA",
-        technologies: ["React", "TypeScript", "Redux", "Tailwind CSS"],
-        projects: ["Customer Dashboard Redesign", "Performance Optimization Initiative", "Mobile App Integration"]
+        technologies: ["React", "TypeScript", "GraphQL", "Tailwind CSS"],
+        projects: ["Customer Portal Redesign", "Analytics Dashboard"]
       },
       {
-        company: "WebSolutions Co.",
-        position: "Full Stack Developer",
-        start_date: "2018-07-01",
-        end_date: "2021-02-28",
-        description: "Developed and maintained web applications for clients across various industries. Worked on both frontend and backend development using modern JavaScript frameworks and Node.js.",
-        logo_url: "/placeholder.svg",
+        company: "Digital Solutions LLC",
+        position: "Frontend Developer",
+        start_date: "2019-03-15",
+        end_date: "2021-05-30",
+        description: "Developed responsive web applications for clients across various industries. Collaborated with designers and backend developers to create seamless user experiences.",
+        logo_url: "https://logo.clearbit.com/digitalsolutions.example.com",
         location: "Austin, TX",
-        technologies: ["JavaScript", "Node.js", "Express", "MongoDB", "React"],
-        projects: ["E-commerce Platform", "Content Management System", "Real Estate Listing Portal"]
+        technologies: ["JavaScript", "React", "Redux", "SASS"],
+        projects: ["E-commerce Platform", "CRM System"]
       },
       {
-        company: "StartupVision",
+        company: "Web Crafters",
         position: "Junior Developer",
-        start_date: "2016-05-01",
-        end_date: "2018-06-30",
-        description: "Contributed to the development of a SaaS platform for startup analytics. Worked in an agile team environment and participated in all stages of the development lifecycle.",
-        logo_url: "/placeholder.svg",
-        location: "Boston, MA",
-        technologies: ["JavaScript", "HTML/CSS", "jQuery", "PHP", "MySQL"],
-        projects: ["User Dashboard", "Reporting Module", "Admin Panel"]
+        start_date: "2017-09-01",
+        end_date: "2019-03-01",
+        description: "Built and maintained websites for small to medium-sized businesses. Gained experience in full-stack development and project management.",
+        logo_url: "https://logo.clearbit.com/webcrafters.example.com",
+        location: "Portland, OR",
+        technologies: ["JavaScript", "HTML", "CSS", "Node.js", "MongoDB"],
+        projects: ["Portfolio Websites", "Booking System"]
       }
     ];
-
-    // Define blog post data
-    const blogPosts: BlogPost[] = [
-      {
-        title: "Getting Started with React and TypeScript",
-        content: "This is a comprehensive guide to setting up a new React project with TypeScript...",
-        excerpt: "Learn how to set up a new React project with TypeScript for type-safe development.",
-        slug: "getting-started-react-typescript",
-        publish_date: "2023-04-10",
-        tags: ["React", "TypeScript", "Frontend"],
-        cover_image_url: "/placeholder.svg",
-        category: "Development",
-        reading_time: 5,
-        published: true
-      },
-      {
-        title: "Building Responsive Layouts with Tailwind CSS",
-        content: "In this article, we'll explore how to create responsive designs using Tailwind CSS...",
-        excerpt: "Explore the power of utility-first CSS with Tailwind for creating responsive designs.",
-        slug: "responsive-layouts-tailwind",
-        publish_date: "2023-03-25",
-        tags: ["CSS", "Tailwind", "Responsive Design"],
-        cover_image_url: "/placeholder.svg",
-        category: "Design",
-        reading_time: 7,
-        published: true
-      },
-      {
-        title: "State Management in Modern React Applications",
-        content: "Let's compare different state management approaches from Context API to Redux and Zustand...",
-        excerpt: "Compare different state management approaches from Context API to Redux and Zustand.",
-        slug: "state-management-react",
-        publish_date: "2023-02-17",
-        tags: ["React", "State Management", "Redux"],
-        cover_image_url: "/placeholder.svg",
-        category: "Development",
-        reading_time: 10,
-        published: true
-      },
-      {
-        title: "Optimizing API Calls with React Query",
-        content: "Learn how to implement efficient data fetching strategies with React Query...",
-        excerpt: "Learn how to implement efficient data fetching with React Query for better UX.",
-        slug: "optimizing-api-calls-react-query",
-        publish_date: "2023-01-29",
-        tags: ["React", "API", "Performance"],
-        cover_image_url: "/placeholder.svg",
-        category: "Performance",
-        reading_time: 8,
-        published: true
-      }
-    ];
-
-    // Define site settings
-    const siteSettings: SiteSettings[] = [
+    
+    // Insert experiences
+    const { error: experiencesError } = await supabaseClient
+      .from('experiences')
+      .upsert(experiencesData, { onConflict: 'company,position' });
+      
+    if (experiencesError) {
+      throw experiencesError;
+    }
+    
+    // Seed site settings
+    const siteSettingsData = [
       {
         key: "contact_info",
         value: {
-          email: "contact@example.com",
+          email: "johndoe@example.com",
           phone: "+1 (555) 123-4567",
           address: "San Francisco, CA",
-          github: "https://github.com/username",
-          twitter: "https://twitter.com/username",
-          linkedin: "https://linkedin.com/in/username"
+          github: "https://github.com/johndoe",
+          twitter: "https://twitter.com/johndoe",
+          linkedin: "https://linkedin.com/in/johndoe"
         }
       },
       {
         key: "social_links",
         value: {
-          github: "https://github.com/username",
-          twitter: "https://twitter.com/username",
-          linkedin: "https://linkedin.com/in/username",
-          instagram: "https://instagram.com/username",
-          youtube: "https://youtube.com/@username",
-          facebook: "https://facebook.com/username"
+          github: "https://github.com/johndoe",
+          twitter: "https://twitter.com/johndoe",
+          linkedin: "https://linkedin.com/in/johndoe",
+          instagram: "https://instagram.com/johndoe",
+          youtube: "https://youtube.com/@johndoe",
+          facebook: "https://facebook.com/johndoe"
         }
       },
       {
         key: "site_info",
         value: {
-          title: "Developer Portfolio",
-          description: "Personal portfolio and blog showcasing my web development projects and skills.",
-          keywords: "web development, frontend, react, javascript, portfolio",
-          author: "Your Name",
+          title: "John Doe - Web Developer",
+          description: "Portfolio and blog of a passionate web developer specialized in React and TypeScript",
+          keywords: "web developer, frontend, react, typescript, portfolio",
+          author: "John Doe",
           logoUrl: "/logo.svg",
           faviconUrl: "/favicon.ico"
         }
-      },
-      {
-        key: "theme",
-        value: {
-          layout: "multi-page",
-          colorScheme: "system",
-          primaryColor: "#3b82f6",
-          fontFamily: "Inter",
-          showBadge: true
-        }
       }
     ];
-
-    // Insert skills
-    console.log('Seeding skills data...');
-    await supabase.from('skills').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    const { data: skillsData, error: skillsError } = await supabase.from('skills').insert(skills).select();
     
-    if (skillsError) {
-      throw new Error(`Failed to seed skills: ${skillsError.message}`);
-    }
-
-    // Insert projects
-    console.log('Seeding projects data...');
-    await supabase.from('projects').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    const { error: projectsError } = await supabase.from('projects').insert(projects);
-    
-    if (projectsError) {
-      throw new Error(`Failed to seed projects: ${projectsError.message}`);
-    }
-
-    // Insert experiences
-    console.log('Seeding experiences data...');
-    await supabase.from('experiences').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    const { error: experiencesError } = await supabase.from('experiences').insert(experiences);
-    
-    if (experiencesError) {
-      throw new Error(`Failed to seed experiences: ${experiencesError.message}`);
-    }
-
-    // Insert blog posts
-    console.log('Seeding blog posts data...');
-    await supabase.from('blog_posts').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    const { error: blogPostsError } = await supabase.from('blog_posts').insert(blogPosts);
-    
-    if (blogPostsError) {
-      throw new Error(`Failed to seed blog posts: ${blogPostsError.message}`);
-    }
-
     // Insert site settings
-    console.log('Seeding site settings data...');
-    await supabase.from('site_settings').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    const { error: settingsError } = await supabase.from('site_settings').insert(siteSettings);
-    
+    const { error: settingsError } = await supabaseClient
+      .from('site_settings')
+      .upsert(siteSettingsData, { onConflict: 'key' });
+      
     if (settingsError) {
-      throw new Error(`Failed to seed site settings: ${settingsError.message}`);
+      throw settingsError;
     }
-
-    console.log('Seeding completed successfully!');
 
     return new Response(
-      JSON.stringify({ success: true, message: "Database seeded successfully!" }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
+      JSON.stringify({ 
+        success: true, 
+        message: "Successfully seeded database with sample data." 
+      }),
+      { 
+        headers: { 
+          "Content-Type": "application/json",
+          ...corsHeaders
+        }
       }
     );
-
   } catch (error) {
-    console.error('Error in seed-skills function:', error);
-    
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      JSON.stringify({ 
+        success: false, 
+        error: error.message 
+      }),
+      { 
         status: 400,
+        headers: { 
+          "Content-Type": "application/json",
+          ...corsHeaders
+        }
       }
     );
   }
