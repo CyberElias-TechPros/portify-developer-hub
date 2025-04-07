@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,13 +12,76 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { projects } from "@/data/mock-data";
-import { Github, ExternalLink, Star, GitFork, Users } from "lucide-react";
+import { Github, ExternalLink, Star, GitFork, Users, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import type { Project } from "@/types/portfolio";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Projects() {
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  // Fetch projects from Supabase
+  useEffect(() => {
+    async function fetchProjects() {
+      try {
+        setLoading(true);
+        
+        // Get the projects table data from Supabase
+        const { data, error } = await supabase
+          .from('projects')
+          .select('*');
+        
+        if (error) {
+          throw error;
+        }
+        
+        if (data && data.length > 0) {
+          // Convert the database format to our app's Project format
+          const formattedProjects: Project[] = data.map(project => ({
+            id: project.id,
+            title: project.title,
+            description: project.description,
+            longDescription: project.long_description,
+            tags: Array.isArray(project.tags) ? project.tags : [],
+            imageUrl: project.image_url || '/placeholder.svg',
+            repoUrl: project.repo_url,
+            demoUrl: project.demo_url,
+            featured: project.featured || false,
+            stars: project.stars,
+            forks: project.forks,
+            contributors: project.contributors,
+            category: project.category,
+          }));
+          
+          setProjects(formattedProjects);
+        } else {
+          // Fallback to mock data if no data from Supabase
+          const { projects: mockProjects } = await import("@/data/mock-data");
+          setProjects(mockProjects);
+        }
+      } catch (error) {
+        console.error('Error fetching projects:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load projects data",
+          variant: "destructive"
+        });
+        
+        // Fallback to mock data if database fetch fails
+        const { projects: mockProjects } = await import("@/data/mock-data");
+        setProjects(mockProjects);
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    fetchProjects();
+  }, [toast]);
   
   // Get unique categories from projects
   const allCategories = ["all", ...Array.from(new Set(projects.map(p => p.category).filter(Boolean)))];
@@ -47,6 +110,19 @@ export default function Projects() {
         : [...prevTags, tag]
     );
   };
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="container py-20 flex items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="h-12 w-12 animate-spin mx-auto text-primary mb-4" />
+            <p className="text-lg text-muted-foreground">Loading projects...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>

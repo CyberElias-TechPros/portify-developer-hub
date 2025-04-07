@@ -38,7 +38,7 @@ export default function Skills() {
           throw error;
         }
         
-        if (data) {
+        if (data && data.length > 0) {
           // Convert the database format to our app's Skill format
           const formattedSkills: Skill[] = data.map(skill => ({
             id: skill.id,
@@ -52,6 +52,10 @@ export default function Skills() {
           }));
           
           setSkills(formattedSkills);
+        } else {
+          // Fallback to mock data if no data from Supabase
+          const { skills } = await import("@/data/mock-data");
+          setSkills(skills);
         }
       } catch (error) {
         console.error('Error fetching skills:', error);

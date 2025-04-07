@@ -1,17 +1,94 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from "framer-motion";
-import { experiences } from "@/data/mock-data";
-import { Calendar, MapPin } from "lucide-react";
+import { Calendar, MapPin, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+import type { Experience as ExperienceType } from "@/types/portfolio";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Experience() {
+  const { toast } = useToast();
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [experiences, setExperiences] = useState<ExperienceType[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchExperiences() {
+      try {
+        setLoading(true);
+        
+        // Get the experiences from Supabase
+        const { data, error } = await supabase
+          .from('experiences')
+          .select('*')
+          .order('start_date', { ascending: false });
+        
+        if (error) {
+          throw error;
+        }
+        
+        if (data && data.length > 0) {
+          // Convert the database format to our app's Experience format
+          const formattedExperiences: ExperienceType[] = data.map(exp => ({
+            id: exp.id,
+            company: exp.company,
+            position: exp.position,
+            startDate: exp.start_date,
+            endDate: exp.end_date,
+            description: exp.description,
+            logoUrl: exp.logo_url,
+            location: exp.location,
+            current: exp.end_date === null,
+            technologies: Array.isArray(exp.technologies) ? exp.technologies : [],
+            projects: Array.isArray(exp.projects) ? exp.projects : [],
+          }));
+          
+          setExperiences(formattedExperiences);
+        } else {
+          // Fallback to mock data if no data from Supabase
+          const { experiences: mockExperiences } = await import("@/data/mock-data");
+          setExperiences(mockExperiences);
+        }
+      } catch (error) {
+        console.error('Error fetching experiences:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load experience data",
+          variant: "destructive"
+        });
+        
+        // Fallback to mock data if database fetch fails
+        const { experiences: mockExperiences } = await import("@/data/mock-data");
+        setExperiences(mockExperiences);
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    fetchExperiences();
+  }, [toast]);
 
   const toggleExpand = (id: string) => {
     setExpandedId(expandedId === id ? null : id);
   };
+
+  if (loading) {
+    return (
+      <section id="experience" className="py-20 px-6 md:px-12 bg-muted/30">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Work Experience</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">Loading experiences...</p>
+          </div>
+          <div className="flex justify-center">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section id="experience" className="py-20 px-6 md:px-12 bg-muted/30">
@@ -82,7 +159,7 @@ export default function Experience() {
                       {exp.description}
                     </p>
                     
-                    {exp.technologies && (
+                    {exp.technologies && exp.technologies.length > 0 && (
                       <div className={`flex flex-wrap gap-2 mb-4 md:justify-end ${
                         expandedId !== exp.id && exp.technologies.length > 3 ? 'hidden md:flex' : ''
                       }`}>

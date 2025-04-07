@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import AdminLayout from '@/components/admin/Layout';
 import DashboardStats from '@/components/admin/DashboardStats';
 import RoleManagement from '@/components/admin/RoleManagement';
+import SiteSettings from '@/components/admin/SiteSettings';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from "@/integrations/supabase/client";
 
@@ -113,6 +114,27 @@ export default function Admin() {
         
         // Fetch theme settings
         // This would come from a separate table in a real implementation
+        const { data: themeData, error: themeError } = await supabase
+          .from('site_settings')
+          .select('value')
+          .eq('key', 'theme')
+          .single();
+          
+        if (themeError && themeError.code !== 'PGRST116') {
+          console.error("Error fetching theme:", themeError);
+        } else if (themeData && themeData.value) {
+          const themeSettings = typeof themeData.value === 'string' ? 
+            JSON.parse(themeData.value) : themeData.value;
+          
+          setTheme({
+            layout: themeSettings.layout || theme.layout,
+            colorScheme: themeSettings.colorScheme || theme.colorScheme,
+            primaryColor: themeSettings.primaryColor || theme.primaryColor,
+            fontFamily: themeSettings.fontFamily || theme.fontFamily,
+            showBadge: themeSettings.showBadge !== undefined ? themeSettings.showBadge : theme.showBadge,
+          });
+        }
+        
       } catch (error) {
         console.error("Error in auth check:", error);
         toast({
@@ -137,7 +159,7 @@ export default function Admin() {
     }));
   };
   
-  const handleThemeChange = (name: string, value: string) => {
+  const handleThemeChange = (name: string, value: string | boolean) => {
     setTheme(prev => ({
       ...prev,
       [name]: value
@@ -166,6 +188,23 @@ export default function Admin() {
       
       if (error) throw error;
       
+      // Also update the contact info in site settings
+      await supabase
+        .from('site_settings')
+        .upsert({
+          key: 'contact_info',
+          value: {
+            email: profile.email,
+            phone: profile.phone,
+            address: profile.location,
+            github: profile.github,
+            twitter: profile.twitter,
+            linkedin: profile.linkedin,
+          }
+        }, {
+          onConflict: 'key'
+        });
+      
       toast({
         title: "Profile Updated",
         description: "Your profile has been successfully updated.",
@@ -187,7 +226,16 @@ export default function Admin() {
       setIsSaving(true);
       
       // Update theme settings in Supabase
-      // This would be a separate table in a real implementation
+      const { error } = await supabase
+        .from('site_settings')
+        .upsert({
+          key: 'theme',
+          value: theme
+        }, {
+          onConflict: 'key'
+        });
+      
+      if (error) throw error;
       
       toast({
         title: "Theme Updated",
@@ -278,10 +326,11 @@ export default function Admin() {
   return (
     <AdminLayout>
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-1 md:grid-cols-4 mb-8">
+        <TabsList className="grid w-full grid-cols-1 md:grid-cols-5 mb-8">
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="theme">Theme</TabsTrigger>
+          <TabsTrigger value="siteSettings">Site Settings</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
         </TabsList>
         
@@ -458,7 +507,7 @@ export default function Admin() {
                     <Label htmlFor="layout">Layout</Label>
                     <Select 
                       value={theme.layout} 
-                      onValueChange={(value) => handleThemeChange('layout', value)}
+                      onValueChange={(value: 'single-page' | 'multi-page') => handleThemeChange('layout', value)}
                     >
                       <SelectTrigger id="layout">
                         <SelectValue placeholder="Select layout" />
@@ -474,7 +523,7 @@ export default function Admin() {
                     <Label htmlFor="colorScheme">Color Scheme</Label>
                     <Select 
                       value={theme.colorScheme} 
-                      onValueChange={(value) => handleThemeChange('colorScheme', value)}
+                      onValueChange={(value: 'light' | 'dark' | 'system') => handleThemeChange('colorScheme', value)}
                     >
                       <SelectTrigger id="colorScheme">
                         <SelectValue placeholder="Select color scheme" />
@@ -534,7 +583,7 @@ export default function Admin() {
                     type="checkbox"
                     id="showBadge"
                     checked={theme.showBadge}
-                    onChange={(e) => handleThemeChange('showBadge', e.target.checked.toString())}
+                    onChange={(e) => handleThemeChange('showBadge', e.target.checked)}
                     className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                   />
                   <Label htmlFor="showBadge">Show "Made with Lovable" badge</Label>
@@ -548,6 +597,10 @@ export default function Admin() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+        
+        <TabsContent value="siteSettings" className="space-y-4">
+          <SiteSettings />
         </TabsContent>
         
         <TabsContent value="security" className="space-y-4">

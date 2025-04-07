@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Mail, Send, User, MessageSquare, Github, Twitter, Linkedin } from "lucide-react";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -21,6 +20,50 @@ const Contact = () => {
     subject: "",
     message: "",
   });
+  const [contactInfo, setContactInfo] = useState({
+    email: "contact@example.com",
+    github: "https://github.com",
+    twitter: "https://twitter.com",
+    linkedin: "https://linkedin.com",
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchContactInfo() {
+      try {
+        setLoading(true);
+        const { data, error } = await supabase
+          .from('site_settings')
+          .select('*')
+          .eq('key', 'contact_info')
+          .single();
+        
+        if (error) {
+          if (error.code !== 'PGRST116') {
+            throw error;
+          }
+        }
+        
+        if (data && data.value) {
+          const contactData = typeof data.value === 'string' ? 
+            JSON.parse(data.value) : data.value;
+            
+          setContactInfo({
+            email: contactData.email || contactInfo.email,
+            github: contactData.github || contactInfo.github,
+            twitter: contactData.twitter || contactInfo.twitter,
+            linkedin: contactData.linkedin || contactInfo.linkedin,
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching contact info:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchContactInfo();
+  }, []);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -34,7 +77,6 @@ const Contact = () => {
     setIsSubmitting(true);
 
     try {
-      // Call the Supabase edge function to submit the contact form
       const { error } = await supabase.functions.invoke("contact-submit", {
         body: formData,
       });
@@ -43,7 +85,6 @@ const Contact = () => {
         throw new Error(error.message);
       }
 
-      // Reset form and show success message
       setFormData({
         name: "",
         email: "",
@@ -172,8 +213,8 @@ const Contact = () => {
                 <CardContent className="space-y-4">
                   <div className="flex items-center space-x-3">
                     <Mail className="h-5 w-5 text-primary" />
-                    <a href="mailto:contact@example.com" className="hover:text-primary transition-colors">
-                      contact@example.com
+                    <a href={`mailto:${contactInfo.email}`} className="hover:text-primary transition-colors">
+                      {contactInfo.email}
                     </a>
                   </div>
                 </CardContent>
@@ -189,7 +230,7 @@ const Contact = () => {
                 <CardContent>
                   <div className="grid grid-cols-3 gap-4">
                     <a
-                      href="https://github.com"
+                      href={contactInfo.github}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex flex-col items-center justify-center p-4 rounded-lg hover:bg-secondary transition-colors"
@@ -198,7 +239,7 @@ const Contact = () => {
                       <span>GitHub</span>
                     </a>
                     <a
-                      href="https://twitter.com"
+                      href={contactInfo.twitter}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex flex-col items-center justify-center p-4 rounded-lg hover:bg-secondary transition-colors"
@@ -207,7 +248,7 @@ const Contact = () => {
                       <span>Twitter</span>
                     </a>
                     <a
-                      href="https://linkedin.com"
+                      href={contactInfo.linkedin}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex flex-col items-center justify-center p-4 rounded-lg hover:bg-secondary transition-colors"

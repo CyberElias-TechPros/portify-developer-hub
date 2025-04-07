@@ -1,9 +1,8 @@
-
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -16,6 +15,39 @@ export default function ContactSection() {
     message: ""
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [contactEmail, setContactEmail] = useState("contact@example.com");
+
+  useEffect(() => {
+    async function fetchContactInfo() {
+      try {
+        // Fetch contact information from Supabase
+        const { data, error } = await supabase
+          .from('site_settings')
+          .select('value')
+          .eq('key', 'contact_info')
+          .single();
+        
+        if (error) {
+          if (error.code !== 'PGRST116') { // PGRST116 means no rows returned
+            console.error("Error fetching contact info:", error);
+          }
+          // If no rows, keep default values
+        } else if (data && data.value) {
+          const contactData = typeof data.value === 'string' ? 
+            JSON.parse(data.value) : data.value;
+            
+          if (contactData.email) {
+            setContactEmail(contactData.email);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching contact info:", error);
+        // Keep default values on error
+      }
+    }
+
+    fetchContactInfo();
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -82,7 +114,7 @@ export default function ContactSection() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label htmlFor="name" className="text-sm font-medium">
+                  <label htmlFor="name" className="block text-sm font-medium">
                     Name
                   </label>
                   <Input
@@ -95,7 +127,7 @@ export default function ContactSection() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label htmlFor="email" className="text-sm font-medium">
+                  <label htmlFor="email" className="block text-sm font-medium">
                     Email
                   </label>
                   <Input
@@ -110,7 +142,7 @@ export default function ContactSection() {
                 </div>
               </div>
               <div className="space-y-2">
-                <label htmlFor="subject" className="text-sm font-medium">
+                <label htmlFor="subject" className="block text-sm font-medium">
                   Subject
                 </label>
                 <Input
@@ -123,7 +155,7 @@ export default function ContactSection() {
                 />
               </div>
               <div className="space-y-2">
-                <label htmlFor="message" className="text-sm font-medium">
+                <label htmlFor="message" className="block text-sm font-medium">
                   Message
                 </label>
                 <Textarea

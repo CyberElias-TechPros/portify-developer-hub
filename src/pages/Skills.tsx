@@ -26,7 +26,7 @@ const Skills = () => {
           throw error;
         }
         
-        if (data) {
+        if (data && data.length > 0) {
           // Convert the database format to our app's Skill format
           const formattedSkills: Skill[] = data.map(skill => ({
             id: skill.id,
@@ -40,6 +40,10 @@ const Skills = () => {
           }));
           
           setSkills(formattedSkills);
+        } else {
+          // Fallback to mock data if no data from Supabase
+          const { skills: mockSkills } = await import("@/data/mock-data");
+          setSkills(mockSkills);
         }
       } catch (error) {
         console.error('Error fetching skills:', error);
@@ -49,20 +53,8 @@ const Skills = () => {
           variant: "destructive"
         });
         // Fallback to mock data if there's an error
-        setSkills([
-          { name: "JavaScript", percentage: 90, category: "languages" },
-          { name: "TypeScript", percentage: 85, category: "languages" },
-          { name: "Python", percentage: 75, category: "languages" },
-          { name: "React", percentage: 92, category: "frameworks" },
-          { name: "Next.js", percentage: 88, category: "frameworks" },
-          { name: "Node.js", percentage: 80, category: "frameworks" },
-          { name: "Tailwind CSS", percentage: 95, category: "frameworks" },
-          { name: "Git", percentage: 85, category: "tools" },
-          { name: "Docker", percentage: 70, category: "tools" },
-          { name: "AWS", percentage: 65, category: "tools" },
-          { name: "GraphQL", percentage: 78, category: "other" },
-          { name: "REST APIs", percentage: 90, category: "other" },
-        ] as Skill[]);
+        const { skills: mockSkills } = await import("@/data/mock-data");
+        setSkills(mockSkills);
       } finally {
         setLoading(false);
       }

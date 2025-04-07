@@ -1,20 +1,103 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { projects } from "@/data/mock-data";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Github, ExternalLink, Star, GitFork, Users } from "lucide-react";
+import { Github, ExternalLink, Star, GitFork, Users, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import type { Project } from "@/types/portfolio";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ProjectsShowcase() {
+  const { toast } = useToast();
   const [filter, setFilter] = useState("all");
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  // Fetch projects from Supabase
+  useEffect(() => {
+    async function fetchProjects() {
+      try {
+        setLoading(true);
+        
+        // Get the projects from Supabase that are featured
+        const { data, error } = await supabase
+          .from('projects')
+          .select('*')
+          .eq('featured', true);
+        
+        if (error) {
+          throw error;
+        }
+        
+        if (data && data.length > 0) {
+          // Convert the database format to our app's Project format
+          const formattedProjects: Project[] = data.map(project => ({
+            id: project.id,
+            title: project.title,
+            description: project.description,
+            longDescription: project.long_description,
+            tags: Array.isArray(project.tags) ? project.tags : [],
+            imageUrl: project.image_url || '/placeholder.svg',
+            repoUrl: project.repo_url,
+            demoUrl: project.demo_url,
+            featured: project.featured || false,
+            stars: project.stars,
+            forks: project.forks,
+            contributors: project.contributors,
+            category: project.category,
+          }));
+          
+          setProjects(formattedProjects);
+        } else {
+          // Fallback to mock data if no data from Supabase
+          const { projects: mockProjects } = await import("@/data/mock-data");
+          const featuredProjects = mockProjects.filter(p => p.featured);
+          setProjects(featuredProjects);
+        }
+      } catch (error) {
+        console.error('Error fetching projects:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load projects data",
+          variant: "destructive"
+        });
+        
+        // Fallback to mock data if database fetch fails
+        const { projects: mockProjects } = await import("@/data/mock-data");
+        const featuredProjects = mockProjects.filter(p => p.featured);
+        setProjects(featuredProjects);
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    fetchProjects();
+  }, [toast]);
+
   const filters = ["all", ...new Set(projects.map(project => project.category))];
 
   const filteredProjects = filter === "all" 
-    ? projects.filter(project => project.featured)
-    : projects.filter(project => project.category === filter && project.featured);
+    ? projects
+    : projects.filter(project => project.category === filter);
+
+  if (loading) {
+    return (
+      <section id="projects" className="py-20 px-6 md:px-12">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Featured Projects</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">Loading projects...</p>
+          </div>
+          <div className="flex justify-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section id="projects" className="py-20 px-6 md:px-12">
