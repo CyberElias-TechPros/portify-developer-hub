@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,7 +24,7 @@ export default function ContactSection() {
         // Fetch contact information from Supabase
         const { data, error } = await supabase
           .from('site_settings')
-          .select('value')
+          .select('*')
           .eq('key', 'contact_info')
           .single();
         

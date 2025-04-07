@@ -8,7 +8,7 @@ const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 // Define types for our data models
 interface Skill {
   name: string;
-  category: 'languages' | 'frameworks' | 'tools' | 'other';
+  category: string;
   proficiency: number;
   icon_url?: string;
   year_acquired?: number;

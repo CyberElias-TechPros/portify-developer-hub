@@ -35,7 +35,7 @@ export interface Project {
 export interface Skill {
   id: string;
   name: string;
-  category: 'languages' | 'frameworks' | 'tools' | 'other';
+  category: string; // Changed from enum to string to match database
   proficiency: number; // 0-100
   iconUrl?: string;
   yearAcquired?: number;
@@ -186,4 +186,13 @@ export interface Theme {
   };
   layout: 'single-page' | 'multi-page';
   darkMode: boolean;
+}
+
+// Site Settings type
+export interface SiteSetting {
+  id: string;
+  key: string;
+  value: any;
+  createdAt?: string;
+  updatedAt?: string;
 }

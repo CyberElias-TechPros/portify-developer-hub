@@ -9,6 +9,57 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      blog_posts: {
+        Row: {
+          category: string | null
+          content: string
+          cover_image_url: string | null
+          created_at: string | null
+          excerpt: string | null
+          id: string
+          publish_date: string | null
+          published: boolean | null
+          reading_time: number | null
+          series: string | null
+          slug: string
+          tags: string[] | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string | null
+          content: string
+          cover_image_url?: string | null
+          created_at?: string | null
+          excerpt?: string | null
+          id?: string
+          publish_date?: string | null
+          published?: boolean | null
+          reading_time?: number | null
+          series?: string | null
+          slug: string
+          tags?: string[] | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string | null
+          content?: string
+          cover_image_url?: string | null
+          created_at?: string | null
+          excerpt?: string | null
+          id?: string
+          publish_date?: string | null
+          published?: boolean | null
+          reading_time?: number | null
+          series?: string | null
+          slug?: string
+          tags?: string[] | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       contact_messages: {
         Row: {
           created_at: string
@@ -36,6 +87,51 @@ export type Database = {
           name?: string
           read?: boolean
           subject?: string
+        }
+        Relationships: []
+      }
+      experiences: {
+        Row: {
+          company: string
+          created_at: string | null
+          description: string
+          end_date: string | null
+          id: string
+          location: string | null
+          logo_url: string | null
+          position: string
+          projects: string[] | null
+          start_date: string
+          technologies: string[] | null
+          updated_at: string | null
+        }
+        Insert: {
+          company: string
+          created_at?: string | null
+          description: string
+          end_date?: string | null
+          id?: string
+          location?: string | null
+          logo_url?: string | null
+          position: string
+          projects?: string[] | null
+          start_date: string
+          technologies?: string[] | null
+          updated_at?: string | null
+        }
+        Update: {
+          company?: string
+          created_at?: string | null
+          description?: string
+          end_date?: string | null
+          id?: string
+          location?: string | null
+          logo_url?: string | null
+          position?: string
+          projects?: string[] | null
+          start_date?: string
+          technologies?: string[] | null
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -78,6 +174,84 @@ export type Database = {
           twitter?: string | null
           updated_at?: string | null
           website?: string | null
+        }
+        Relationships: []
+      }
+      projects: {
+        Row: {
+          category: string | null
+          contributors: number | null
+          created_at: string | null
+          demo_url: string | null
+          description: string
+          featured: boolean | null
+          forks: number | null
+          id: string
+          image_url: string | null
+          long_description: string | null
+          repo_url: string | null
+          stars: number | null
+          tags: string[] | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string | null
+          contributors?: number | null
+          created_at?: string | null
+          demo_url?: string | null
+          description: string
+          featured?: boolean | null
+          forks?: number | null
+          id?: string
+          image_url?: string | null
+          long_description?: string | null
+          repo_url?: string | null
+          stars?: number | null
+          tags?: string[] | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string | null
+          contributors?: number | null
+          created_at?: string | null
+          demo_url?: string | null
+          description?: string
+          featured?: boolean | null
+          forks?: number | null
+          id?: string
+          image_url?: string | null
+          long_description?: string | null
+          repo_url?: string | null
+          stars?: number | null
+          tags?: string[] | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      site_settings: {
+        Row: {
+          created_at: string | null
+          id: string
+          key: string
+          updated_at: string | null
+          value: Json
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          key: string
+          updated_at?: string | null
+          value?: Json
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          key?: string
+          updated_at?: string | null
+          value?: Json
         }
         Relationships: []
       }
