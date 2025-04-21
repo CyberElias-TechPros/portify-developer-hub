@@ -82,7 +82,7 @@ export default function Map({ address = "San Francisco, CA", height = "400px", c
   return (
     <Card className={`overflow-hidden ${className}`}>
       {loading ? (
-        <Skeleton className={`w-full h-[${height}]`} />
+        <Skeleton className={`w-full ${height}`} />
       ) : (
         <div 
           ref={mapRef} 
