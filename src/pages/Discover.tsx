@@ -7,7 +7,7 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
-import { Profile } from "@/types/portfolio";
+import { Profile, adaptDbProfilesToProfiles } from "@/types/portfolio";
 import { Search } from "lucide-react";
 import AnimatedWrapper from "@/components/AnimatedWrapper";
 
@@ -27,7 +27,7 @@ export default function Discover() {
           .select('*');
         
         if (error) throw error;
-        setProfiles(data as Profile[]);
+        setProfiles(adaptDbProfilesToProfiles(data || []));
       } catch (error) {
         console.error('Error fetching profiles:', error);
       } finally {
@@ -80,12 +80,12 @@ export default function Discover() {
                     <CardContent className="pt-0">
                       <div className="-mt-12 flex justify-center">
                         <Avatar className="h-24 w-24 border-4 border-background">
-                          <AvatarImage src={profile.avatarUrl} />
-                          <AvatarFallback>{profile.name?.charAt(0)}</AvatarFallback>
+                          <AvatarImage src={profile.avatarUrl || profile.avatar_url} />
+                          <AvatarFallback>{profile.name?.charAt(0) || profile.full_name?.charAt(0) || '?'}</AvatarFallback>
                         </Avatar>
                       </div>
                       <div className="text-center mt-4">
-                        <h2 className="text-xl font-semibold">{profile.name}</h2>
+                        <h2 className="text-xl font-semibold">{profile.name || profile.full_name}</h2>
                         <p className="text-muted-foreground">{profile.title}</p>
                       </div>
                       <div className="mt-4">

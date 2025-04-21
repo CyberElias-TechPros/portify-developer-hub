@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
-import { Profile } from "@/types/portfolio";
+import { Profile, adaptDbProfilesToProfiles } from "@/types/portfolio";
 import AnimatedWrapper from "@/components/AnimatedWrapper";
 import HelpTooltip from "@/components/HelpTooltip";
 
@@ -25,7 +25,7 @@ export default function Community() {
           .limit(10);
         
         if (error) throw error;
-        setProfiles(data as Profile[]);
+        setProfiles(adaptDbProfilesToProfiles(data || []));
       } catch (error) {
         console.error('Error fetching profiles:', error);
       } finally {
@@ -110,10 +110,10 @@ export default function Community() {
                   profiles.map((profile) => (
                     <Card key={profile.id} className="p-6 flex flex-col items-center text-center">
                       <Avatar className="h-20 w-20 mb-4">
-                        <AvatarImage src={profile.avatarUrl} />
-                        <AvatarFallback>{profile.name?.charAt(0)}</AvatarFallback>
+                        <AvatarImage src={profile.avatarUrl || profile.avatar_url} />
+                        <AvatarFallback>{profile.name?.charAt(0) || profile.full_name?.charAt(0) || '?'}</AvatarFallback>
                       </Avatar>
-                      <h3 className="text-xl font-medium">{profile.name}</h3>
+                      <h3 className="text-xl font-medium">{profile.name || profile.full_name}</h3>
                       <p className="text-muted-foreground mb-2">{profile.title}</p>
                       <Button variant="outline" size="sm" asChild>
                         <a href={`/u/${profile.id}`}>View Portfolio</a>

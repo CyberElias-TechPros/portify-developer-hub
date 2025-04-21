@@ -1,17 +1,21 @@
-
 // User profile type
 export interface Profile {
   id: string;
-  name: string;
-  title: string;
-  bio: string;
-  location: string;
-  email: string;
-  github: string;
-  linkedin: string;
-  twitter: string;
-  website: string;
-  avatarUrl: string;
+  name?: string;  // Maps to full_name in the database
+  title?: string;
+  bio?: string;
+  location?: string;
+  email?: string;
+  github?: string;
+  linkedin?: string;
+  twitter?: string;
+  website?: string;
+  avatarUrl?: string;  // Maps to avatar_url in the database
+  
+  // Database specific fields (necessary for type compatibility)
+  full_name?: string;
+  avatar_url?: string;
+  updated_at?: string;
 }
 
 // Project type
@@ -242,3 +246,32 @@ export interface CustomSupabaseClient {
   from(table: 'skill_endorsements'): any;
   from(table: string): any;
 }
+
+// Adapter functions for converting between database and frontend formats
+export const adaptDbProfileToProfile = (dbProfile: any): Profile => {
+  if (!dbProfile) return {} as Profile;
+  
+  return {
+    id: dbProfile.id,
+    name: dbProfile.full_name || '',
+    title: dbProfile.title || '',
+    bio: dbProfile.bio || '',
+    location: dbProfile.location || '',
+    github: dbProfile.github || '',
+    linkedin: dbProfile.linkedin || '',
+    twitter: dbProfile.twitter || '',
+    website: dbProfile.website || '',
+    avatarUrl: dbProfile.avatar_url || '',
+    
+    // Keep original fields for compatibility
+    full_name: dbProfile.full_name,
+    avatar_url: dbProfile.avatar_url,
+    updated_at: dbProfile.updated_at
+  };
+};
+
+// A helper function to get an array of profiles
+export const adaptDbProfilesToProfiles = (dbProfiles: any[]): Profile[] => {
+  if (!dbProfiles || !Array.isArray(dbProfiles)) return [];
+  return dbProfiles.map(adaptDbProfileToProfile);
+};

@@ -1,5 +1,5 @@
 
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, Variants } from "framer-motion";
 import { ReactNode } from "react";
 
 interface AnimatedWrapperProps {
@@ -10,24 +10,6 @@ interface AnimatedWrapperProps {
   className?: string;
 }
 
-interface MotionVariants {
-  initial: {
-    opacity: number;
-    y?: number;
-    x?: number;
-  };
-  animate: {
-    opacity: number;
-    y?: number;
-    x?: number;
-  };
-  exit: {
-    opacity: number;
-    y?: number;
-    x?: number;
-  };
-}
-
 export default function AnimatedWrapper({ 
   children, 
   delay = 0, 
@@ -36,8 +18,8 @@ export default function AnimatedWrapper({
   className = "" 
 }: AnimatedWrapperProps) {
   // Calculate initial and animate values based on direction
-  const getVariants = () => {
-    const variants: MotionVariants = {
+  const getVariants = (): Variants => {
+    const variants: Variants = {
       initial: { opacity: 0 },
       animate: { opacity: 1 },
       exit: { opacity: 0 },

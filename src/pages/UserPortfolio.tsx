@@ -4,12 +4,35 @@ import { useParams } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import LoadingState from '@/components/LoadingState';
 import { supabase } from '@/integrations/supabase/client';
+import { Profile, adaptDbProfileToProfile } from '@/types/portfolio';
+
+// Create interface props types for the components we're importing
+interface HeroProps {
+  userProfile: Profile;
+}
+
+interface ProjectsShowcaseProps {
+  userId: string;
+}
+
+interface SkillsProps {
+  userId: string;
+}
+
+interface ExperienceProps {
+  userId: string;
+}
+
+interface ContactSectionProps {
+  userProfile: Profile;
+}
+
+// Import components after defining their prop types
 import Hero from '@/components/home/Hero';
 import ProjectsShowcase from '@/components/home/ProjectsShowcase';
 import Skills from '@/components/home/Skills';
 import Experience from '@/components/home/Experience';
 import ContactSection from '@/components/home/ContactSection';
-import { Profile } from '@/types/portfolio';
 
 export default function UserPortfolio() {
   const { username } = useParams<{ username: string }>();
@@ -26,7 +49,7 @@ export default function UserPortfolio() {
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
-          .eq('username', username)
+          .eq('id', username) // Using ID for now, can change to username field later
           .single();
 
         if (error) {
@@ -38,7 +61,7 @@ export default function UserPortfolio() {
           return;
         }
 
-        setProfile(data as Profile);
+        setProfile(adaptDbProfileToProfile(data));
       } catch (err: any) {
         console.error('Error fetching user profile:', err);
         setError(err.message || 'Failed to load user profile');
@@ -72,11 +95,11 @@ export default function UserPortfolio() {
   return (
     <Layout>
       <div className="bg-background">
-        <Hero userProfile={profile} />
-        <ProjectsShowcase userId={profile.id} />
-        <Skills userId={profile.id} />
-        <Experience userId={profile.id} />
-        <ContactSection userProfile={profile} />
+        <Hero userProfile={profile as HeroProps['userProfile']} />
+        <ProjectsShowcase userId={profile.id as ProjectsShowcaseProps['userId']} />
+        <Skills userId={profile.id as SkillsProps['userId']} />
+        <Experience userId={profile.id as ExperienceProps['userId']} />
+        <ContactSection userProfile={profile as ContactSectionProps['userProfile']} />
       </div>
     </Layout>
   );
