@@ -1,4 +1,3 @@
-
 export const profile = {
   name: "Ellis Graham",
   title: "Full Stack Developer",
@@ -23,7 +22,7 @@ export const experiences = [
     current: true,
     description: "Lead frontend development for enterprise SaaS products. Implemented new features and improved performance by 40%.",
     location: "San Francisco, CA",
-    logoUrl: "/placeholder.svg",
+    logoUrl: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=800&q=60", // Modern office environment
     technologies: ["React", "TypeScript", "GraphQL", "Tailwind CSS"],
     projects: ["Dashboard Redesign", "Authentication System", "Analytics Platform"]
   },
@@ -36,7 +35,7 @@ export const experiences = [
     current: false,
     description: "Developed and maintained web applications for clients across various industries. Worked on both frontend and backend technologies.",
     location: "Boston, MA",
-    logoUrl: "/placeholder.svg",
+    logoUrl: "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=800&q=60", // Code on laptop screen
     technologies: ["React", "Node.js", "MongoDB", "Express"],
     projects: ["E-commerce Platform", "CRM System", "Booking Application"]
   },
@@ -49,7 +48,7 @@ export const experiences = [
     current: false,
     description: "Started as an intern and grew into a full-time role. Worked on developing and maintaining websites for multiple startups.",
     location: "New York, NY",
-    logoUrl: "/placeholder.svg",
+    logoUrl: "https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?auto=format&fit=crop&w=800&q=60", // Person on MacBook
     technologies: ["JavaScript", "HTML", "CSS", "jQuery"],
     projects: ["Company Website", "Blog System", "Newsletter Integration"]
   }
@@ -63,7 +62,7 @@ export const skills = [
     proficiency: 95,
     yearAcquired: 2018,
     endorsed: 28,
-    iconUrl: "/placeholder.svg",
+    iconUrl: "https://images.unsplash.com/photo-1633356122544-f134324a6cee?auto=format&fit=crop&w=800&q=60", // React code
   },
   {
     id: "2",
@@ -72,7 +71,7 @@ export const skills = [
     proficiency: 90,
     yearAcquired: 2019,
     endorsed: 22,
-    iconUrl: "/placeholder.svg",
+    iconUrl: "https://images.unsplash.com/photo-1599507593499-a3f7d7d97667?auto=format&fit=crop&w=800&q=60", // TypeScript code
   },
   {
     id: "3",
@@ -81,7 +80,7 @@ export const skills = [
     proficiency: 85,
     yearAcquired: 2017,
     endorsed: 19,
-    iconUrl: "/placeholder.svg",
+    iconUrl: "https://images.unsplash.com/photo-1618401471353-b98afee0b2eb?auto=format&fit=crop&w=800&q=60", // Node.js server
   },
   {
     id: "4",
@@ -90,7 +89,7 @@ export const skills = [
     proficiency: 80,
     yearAcquired: 2020,
     endorsed: 15,
-    iconUrl: "/placeholder.svg",
+    iconUrl: "https://images.unsplash.com/photo-1555952494-efd681c7e3f9?auto=format&fit=crop&w=800&q=60", // Data visualization
   },
   {
     id: "5",
@@ -99,7 +98,7 @@ export const skills = [
     proficiency: 90,
     yearAcquired: 2020,
     endorsed: 17,
-    iconUrl: "/placeholder.svg",
+    iconUrl: "https://images.unsplash.com/photo-1621839673705-6617adf9e890?auto=format&fit=crop&w=800&q=60", // UI design
   },
   {
     id: "6",
@@ -108,7 +107,7 @@ export const skills = [
     proficiency: 75,
     yearAcquired: 2018,
     endorsed: 12,
-    iconUrl: "/placeholder.svg",
+    iconUrl: "https://images.unsplash.com/photo-1544383835-bda2bc66a55d?auto=format&fit=crop&w=800&q=60", // Database
   },
   {
     id: "7",
@@ -117,7 +116,7 @@ export const skills = [
     proficiency: 85,
     yearAcquired: 2017,
     endorsed: 16,
-    iconUrl: "/placeholder.svg",
+    iconUrl: "https://images.unsplash.com/photo-1563986768609-322da13575f3?auto=format&fit=crop&w=800&q=60", // Data center
   },
   {
     id: "8",
@@ -126,7 +125,7 @@ export const skills = [
     proficiency: 70,
     yearAcquired: 2019,
     endorsed: 10,
-    iconUrl: "/placeholder.svg",
+    iconUrl: "https://images.unsplash.com/photo-1605745341112-85968b19335b?auto=format&fit=crop&w=800&q=60", // Container ship
   },
   {
     id: "9",
@@ -135,7 +134,7 @@ export const skills = [
     proficiency: 75,
     yearAcquired: 2019,
     endorsed: 14,
-    iconUrl: "/placeholder.svg",
+    iconUrl: "https://images.unsplash.com/photo-1544197150-b99a580bb7a8?auto=format&fit=crop&w=800&q=60", // Cloud computing
   },
   {
     id: "10",
@@ -144,7 +143,7 @@ export const skills = [
     proficiency: 85,
     yearAcquired: 2020,
     endorsed: 18,
-    iconUrl: "/placeholder.svg",
+    iconUrl: "https://images.unsplash.com/photo-1618788372246-79faff0c3742?auto=format&fit=crop&w=800&q=60", // Modern web development
   }
 ];
 
@@ -234,7 +233,7 @@ export const education = [
     field: "Computer Science",
     startDate: "2014-09",
     endDate: "2016-05",
-    logoUrl: "/placeholder.svg"
+    logoUrl: "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=800&q=60", // University campus
   },
   {
     id: "2",
@@ -243,7 +242,7 @@ export const education = [
     field: "Computer Science",
     startDate: "2010-09",
     endDate: "2014-05",
-    logoUrl: "/placeholder.svg"
+    logoUrl: "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=800&q=60", // College building
   }
 ];
 
