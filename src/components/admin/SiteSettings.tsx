@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { 
   Card, 
@@ -19,34 +18,8 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
-import { SiteSetting } from "@/types/portfolio";
-
-interface ContactInfo {
-  email: string;
-  phone: string;
-  address: string;
-  github: string;
-  twitter: string;
-  linkedin: string;
-}
-
-interface SocialLinks {
-  github: string;
-  twitter: string;
-  linkedin: string;
-  instagram: string;
-  youtube: string;
-  facebook: string;
-}
-
-interface SiteInfo {
-  title: string;
-  description: string;
-  keywords: string;
-  author: string;
-  logoUrl: string;
-  faviconUrl: string;
-}
+import { ContactInfo, SocialLinks, SiteInfo } from "@/types/portfolio";
+import { Json } from "@/integrations/supabase/types";
 
 export default function SiteSettings() {
   const { toast } = useToast();
@@ -97,8 +70,8 @@ export default function SiteSettings() {
           console.error("Error fetching contact info:", contactError);
         } else if (contactData) {
           const parsedData = typeof contactData.value === 'string' ? 
-            JSON.parse(contactData.value) : contactData.value;
-          setContactInfo(parsedData);
+            JSON.parse(contactData.value as string) : contactData.value;
+          setContactInfo(parsedData as ContactInfo);
         }
         
         // Fetch social links
@@ -112,8 +85,8 @@ export default function SiteSettings() {
           console.error("Error fetching social links:", socialError);
         } else if (socialData) {
           const parsedData = typeof socialData.value === 'string' ? 
-            JSON.parse(socialData.value) : socialData.value;
-          setSocialLinks(parsedData);
+            JSON.parse(socialData.value as string) : socialData.value;
+          setSocialLinks(parsedData as SocialLinks);
         }
         
         // Fetch site info
@@ -127,8 +100,8 @@ export default function SiteSettings() {
           console.error("Error fetching site info:", siteError);
         } else if (siteData) {
           const parsedData = typeof siteData.value === 'string' ? 
-            JSON.parse(siteData.value) : siteData.value;
-          setSiteInfo(parsedData);
+            JSON.parse(siteData.value as string) : siteData.value;
+          setSiteInfo(parsedData as SiteInfo);
         }
         
       } catch (error) {
@@ -169,7 +142,7 @@ export default function SiteSettings() {
         .from('site_settings')
         .upsert({
           key: 'contact_info',
-          value: contactInfo
+          value: contactInfo as unknown as Json
         }, {
           onConflict: 'key'
         });
@@ -200,7 +173,7 @@ export default function SiteSettings() {
         .from('site_settings')
         .upsert({
           key: 'social_links',
-          value: socialLinks
+          value: socialLinks as unknown as Json
         }, {
           onConflict: 'key'
         });
@@ -231,7 +204,7 @@ export default function SiteSettings() {
         .from('site_settings')
         .upsert({
           key: 'site_info',
-          value: siteInfo
+          value: siteInfo as unknown as Json
         }, {
           onConflict: 'key'
         });

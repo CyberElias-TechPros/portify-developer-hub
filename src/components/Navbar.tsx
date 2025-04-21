@@ -1,7 +1,8 @@
+
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Menu, X, User } from "lucide-react";
-import { ThemeToggle } from "./ThemeToggle";
+import { ThemeToggleButton } from "./ThemeToggleButton";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
@@ -104,8 +105,12 @@ export default function Navbar() {
 
   return (
     <nav className="w-full py-4 px-6 md:px-12 flex justify-between items-center sticky top-0 z-50 bg-background/90 backdrop-blur-sm border-b">
-      <Link to="/" className="text-xl md:text-2xl font-bold text-primary">
-        Portify
+      <Link to="/" className="text-xl md:text-2xl font-bold text-primary flex items-center gap-2">
+        <span className="relative">
+          <div className="absolute -inset-1 bg-gradient-to-r from-primary to-blue-500 rounded-lg blur opacity-25"></div>
+          <div className="w-8 h-8 bg-background border border-primary/20 rounded-lg flex items-center justify-center relative">P</div>
+        </span>
+        <span className="hidden sm:inline-block">Portify</span>
       </Link>
 
       {/* Desktop Navigation */}
@@ -149,7 +154,7 @@ export default function Navbar() {
           </Link>
         </div>
         <div className="flex items-center space-x-3">
-          <ThemeToggle />
+          <ThemeToggleButton />
           
           {user ? (
             <DropdownMenu>
@@ -197,11 +202,11 @@ export default function Navbar() {
       </div>
 
       {/* Mobile Navigation Toggle */}
-      <div className="md:hidden flex items-center">
-        <ThemeToggle />
+      <div className="md:hidden flex items-center gap-2">
+        <ThemeToggleButton />
         <button
           onClick={toggleMenu}
-          className="ml-4 p-2 rounded-md focus:outline-none"
+          className="p-2 rounded-md focus:outline-none"
         >
           {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>
@@ -209,7 +214,7 @@ export default function Navbar() {
 
       {/* Mobile Navigation Menu */}
       {isOpen && (
-        <div className="md:hidden absolute top-full left-0 right-0 p-5 bg-background border-b shadow-md animate-fade-in z-40">
+        <div className="md:hidden absolute top-full left-0 right-0 p-5 bg-background border-b shadow-md animate-in fade-in slide-in-from-top-5 z-40">
           <div className="flex flex-col space-y-4">
             <Link
               to="/"

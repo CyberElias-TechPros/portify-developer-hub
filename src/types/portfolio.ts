@@ -188,6 +188,39 @@ export interface Theme {
   darkMode: boolean;
 }
 
+// Contact Info type for site settings
+export interface ContactInfo {
+  email: string;
+  phone: string;
+  address: string;
+  github: string;
+  twitter: string;
+  linkedin: string;
+  [key: string]: string; // Index signature for JSON compatibility
+}
+
+// Social Links type for site settings
+export interface SocialLinks {
+  github: string;
+  twitter: string;
+  linkedin: string;
+  instagram: string;
+  youtube: string;
+  facebook: string;
+  [key: string]: string; // Index signature for JSON compatibility
+}
+
+// Site Info type for site settings
+export interface SiteInfo {
+  title: string;
+  description: string;
+  keywords: string;
+  author: string;
+  logoUrl: string;
+  faviconUrl: string;
+  [key: string]: string; // Index signature for JSON compatibility
+}
+
 // Site Settings type
 export interface SiteSetting {
   id: string;
@@ -203,5 +236,9 @@ export interface CustomSupabaseClient {
   from(table: 'projects'): any;
   from(table: 'blog_posts'): any;
   from(table: 'experiences'): any;
+  from(table: 'skills'): any;
+  from(table: 'contact_messages'): any;
+  from(table: 'profiles'): any;
+  from(table: 'skill_endorsements'): any;
   from(table: string): any;
 }

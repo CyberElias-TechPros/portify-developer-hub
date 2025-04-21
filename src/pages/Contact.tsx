@@ -1,39 +1,40 @@
-
 import { useState, useEffect } from "react";
-import { Mail, Send, User, MessageSquare, Github, Twitter, Linkedin } from "lucide-react";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import ContactConfirmationDialog from "@/components/ContactConfirmationDialog";
-import { SiteSetting } from "@/types/portfolio";
+import { supabase } from "@/integrations/supabase/client";
+import AnimatedWrapper from "@/components/AnimatedWrapper";
+import { Mail, Phone, MapPin } from "lucide-react";
+import Map from "@/components/Map";
+import { ContactInfo } from "@/types/portfolio";
 
-const Contact = () => {
+export default function Contact() {
   const { toast } = useToast();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showConfirmation, setShowConfirmation] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     subject: "",
-    message: "",
+    message: ""
   });
-  const [contactInfo, setContactInfo] = useState({
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [contactInfo, setContactInfo] = useState<ContactInfo>({
     email: "contact@example.com",
-    github: "https://github.com",
-    twitter: "https://twitter.com",
-    linkedin: "https://linkedin.com",
+    phone: "+1 (555) 123-4567",
+    address: "San Francisco, CA",
+    github: "",
+    twitter: "",
+    linkedin: ""
   });
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchContactInfo() {
       try {
-        setLoading(true);
         const { data, error } = await supabase
           .from('site_settings')
           .select('*')
@@ -42,142 +43,122 @@ const Contact = () => {
         
         if (error) {
           if (error.code !== 'PGRST116') {
-            throw error;
+            console.error("Error fetching contact info:", error);
           }
-        }
-        
-        if (data && data.value) {
+        } else if (data && data.value) {
           const contactData = typeof data.value === 'string' ? 
             JSON.parse(data.value) : data.value;
             
-          setContactInfo({
-            email: contactData.email || contactInfo.email,
-            github: contactData.github || contactInfo.github,
-            twitter: contactData.twitter || contactInfo.twitter,
-            linkedin: contactData.linkedin || contactInfo.linkedin,
-          });
+          setContactInfo(contactData);
         }
       } catch (error) {
         console.error("Error fetching contact info:", error);
-      } finally {
-        setLoading(false);
       }
     }
 
     fetchContactInfo();
   }, []);
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-
+    
     try {
-      const { error } = await supabase.functions.invoke("contact-submit", {
-        body: formData,
+      const { error } = await supabase.functions.invoke('contact-submit', {
+        body: formData
       });
-
+      
       if (error) {
         throw new Error(error.message);
       }
-
+      
+      setShowConfirmation(true);
+      
       setFormData({
         name: "",
         email: "",
         subject: "",
-        message: "",
+        message: ""
       });
-
-      setShowConfirmation(true);
+      
     } catch (error) {
       console.error("Error submitting form:", error);
       toast({
         title: "Error",
         description: "Failed to send your message. Please try again later.",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const closeConfirmationDialog = () => {
+    setShowConfirmation(false);
+  };
+
   return (
     <Layout>
-      <div className="container max-w-6xl mx-auto py-12 px-4 md:px-6">
-        <div className="flex flex-col space-y-12">
-          <div className="text-center space-y-4">
-            <h1 className="text-4xl font-bold tracking-tight">Get in Touch</h1>
-            <p className="text-muted-foreground max-w-xl mx-auto">
-              Have a question or want to work together? Fill out the form below
-              and I'll get back to you as soon as possible.
+      <AnimatedWrapper>
+        <div className="container mx-auto py-16 px-4">
+          <div className="text-center mb-12">
+            <h1 className="text-4xl font-bold mb-2">Get in Touch</h1>
+            <p className="text-muted-foreground max-w-lg mx-auto">
+              Have a question, proposal, or just want to say hello? Fill out the form below and I'll get back to you as soon as possible.
             </p>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <Card>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-6xl mx-auto">
+            <Card className="shadow-lg">
               <CardHeader>
                 <CardTitle>Send a Message</CardTitle>
                 <CardDescription>
-                  Fill out the form below to send me a message
+                  Fill out the form below and I'll respond as soon as possible.
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Name</Label>
-                    <div className="relative">
-                      <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Name</Label>
                       <Input
                         id="name"
                         name="name"
                         placeholder="Your name"
-                        className="pl-10"
                         value={formData.name}
                         onChange={handleChange}
                         required
                       />
                     </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email</Label>
                       <Input
                         id="email"
                         name="email"
                         type="email"
                         placeholder="Your email"
-                        className="pl-10"
                         value={formData.email}
                         onChange={handleChange}
                         required
                       />
                     </div>
                   </div>
-
                   <div className="space-y-2">
                     <Label htmlFor="subject">Subject</Label>
-                    <div className="relative">
-                      <MessageSquare className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="subject"
-                        name="subject"
-                        placeholder="Message subject"
-                        className="pl-10"
-                        value={formData.subject}
-                        onChange={handleChange}
-                        required
-                      />
-                    </div>
+                    <Input
+                      id="subject"
+                      name="subject"
+                      placeholder="How can I help you?"
+                      value={formData.subject}
+                      onChange={handleChange}
+                      required
+                    />
                   </div>
-
                   <div className="space-y-2">
                     <Label htmlFor="message">Message</Label>
                     <Textarea
@@ -190,88 +171,70 @@ const Contact = () => {
                       required
                     />
                   </div>
-
-                  <Button type="submit" className="w-full" disabled={isSubmitting}>
-                    {isSubmitting ? (
-                      "Sending..."
-                    ) : (
-                      <>
-                        Send Message <Send className="ml-2 h-4 w-4" />
-                      </>
-                    )}
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? "Sending..." : "Send Message"}
                   </Button>
                 </form>
               </CardContent>
             </Card>
-
-            <div className="space-y-8">
-              <Card>
+            
+            <div className="space-y-6">
+              <Card className="shadow-lg">
                 <CardHeader>
                   <CardTitle>Contact Information</CardTitle>
                   <CardDescription>
-                    Other ways to get in touch with me
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center space-x-3">
-                    <Mail className="h-5 w-5 text-primary" />
-                    <a href={`mailto:${contactInfo.email}`} className="hover:text-primary transition-colors">
-                      {contactInfo.email}
-                    </a>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Social Media</CardTitle>
-                  <CardDescription>
-                    Connect with me on social platforms
+                    Feel free to reach out using any of these channels
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-3 gap-4">
-                    <a
-                      href={contactInfo.github}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex flex-col items-center justify-center p-4 rounded-lg hover:bg-secondary transition-colors"
-                    >
-                      <Github className="h-8 w-8 mb-2" />
-                      <span>GitHub</span>
-                    </a>
-                    <a
-                      href={contactInfo.twitter}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex flex-col items-center justify-center p-4 rounded-lg hover:bg-secondary transition-colors"
-                    >
-                      <Twitter className="h-8 w-8 mb-2" />
-                      <span>Twitter</span>
-                    </a>
-                    <a
-                      href={contactInfo.linkedin}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex flex-col items-center justify-center p-4 rounded-lg hover:bg-secondary transition-colors"
-                    >
-                      <Linkedin className="h-8 w-8 mb-2" />
-                      <span>LinkedIn</span>
-                    </a>
+                  <div className="space-y-4">
+                    <div className="flex items-start gap-3">
+                      <Mail className="w-5 h-5 mt-1 text-primary" />
+                      <div>
+                        <h3 className="font-medium">Email</h3>
+                        <a href={`mailto:${contactInfo.email}`} className="text-muted-foreground hover:text-primary">
+                          {contactInfo.email}
+                        </a>
+                      </div>
+                    </div>
+                    {contactInfo.phone && (
+                      <div className="flex items-start gap-3">
+                        <Phone className="w-5 h-5 mt-1 text-primary" />
+                        <div>
+                          <h3 className="font-medium">Phone</h3>
+                          <a href={`tel:${contactInfo.phone}`} className="text-muted-foreground hover:text-primary">
+                            {contactInfo.phone}
+                          </a>
+                        </div>
+                      </div>
+                    )}
+                    {contactInfo.address && (
+                      <div className="flex items-start gap-3">
+                        <MapPin className="w-5 h-5 mt-1 text-primary" />
+                        <div>
+                          <h3 className="font-medium">Location</h3>
+                          <p className="text-muted-foreground">{contactInfo.address}</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
+              
+              <Map height="250px" className="shadow-lg" />
             </div>
           </div>
         </div>
-
+        
         <ContactConfirmationDialog
           open={showConfirmation}
-          onClose={() => setShowConfirmation(false)}
+          onClose={closeConfirmationDialog}
         />
-      </div>
+      </AnimatedWrapper>
     </Layout>
   );
-};
-
-export default Contact;
+}
