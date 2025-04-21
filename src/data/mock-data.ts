@@ -6,7 +6,7 @@ export const profile = {
   location: "San Francisco, CA",
   email: "ellisgraham@example.com",
   phone: "+1 (555) 123-4567",
-  avatarUrl: "/placeholder.svg",
+  avatarUrl: "https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?auto=format&fit=crop&w=800&q=60", // Using the laptop image as it represents tech
   website: "https://ellisgraham.dev",
   github: "https://github.com/ellisgraham",
   twitter: "https://twitter.com/ellisgraham",
@@ -155,7 +155,7 @@ export const projects = [
     description: "A personal portfolio website built with React, TypeScript, and Tailwind CSS.",
     longDescription: "This portfolio website showcases my work and skills. It's built with React, TypeScript, and Tailwind CSS. It features a responsive design, dark mode, and a custom CMS.",
     tags: ["React", "TypeScript", "Tailwind CSS"],
-    imageUrl: "/placeholder.svg",
+    imageUrl: "https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?auto=format&fit=crop&w=800&q=60", // Person using MacBook Pro
     repoUrl: "https://github.com/ellisgraham/portfolio",
     demoUrl: "https://portfolio.ellisgraham.dev",
     featured: true,
@@ -170,7 +170,7 @@ export const projects = [
     description: "A task management application with drag-and-drop functionality.",
     longDescription: "A full-featured task management application with drag-and-drop functionality, user authentication, and real-time updates. Built with React, Node.js, and MongoDB.",
     tags: ["React", "Node.js", "MongoDB", "Express"],
-    imageUrl: "/placeholder.svg",
+    imageUrl: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=800&q=60", // laptop on glass table
     repoUrl: "https://github.com/ellisgraham/task-management",
     demoUrl: "https://tasks.ellisgraham.dev",
     featured: true,
@@ -185,7 +185,7 @@ export const projects = [
     description: "A weather dashboard that displays current weather and forecasts.",
     longDescription: "A weather dashboard that displays current weather conditions and forecasts for multiple locations. Built with React, OpenWeatherMap API, and Chart.js.",
     tags: ["React", "API", "Chart.js"],
-    imageUrl: "/placeholder.svg",
+    imageUrl: "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=800&q=60", // MacBook with code
     repoUrl: "https://github.com/ellisgraham/weather-dashboard",
     demoUrl: "https://weather.ellisgraham.dev",
     featured: false,
@@ -200,7 +200,7 @@ export const projects = [
     description: "A full-featured e-commerce platform with payment integration.",
     longDescription: "A full-featured e-commerce platform with product management, cart functionality, and payment integration. Built with React, Node.js, and MongoDB.",
     tags: ["React", "Node.js", "MongoDB", "Stripe"],
-    imageUrl: "/placeholder.svg",
+    imageUrl: "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=800&q=60", // woman using laptop
     repoUrl: "https://github.com/ellisgraham/ecommerce-platform",
     demoUrl: "https://ecommerce.ellisgraham.dev",
     featured: true,
@@ -215,7 +215,7 @@ export const projects = [
     description: "A simple markdown blog built with Next.js and MDX.",
     longDescription: "A simple markdown blog built with Next.js and MDX. Features syntax highlighting, dark mode, and a custom theme.",
     tags: ["Next.js", "MDX", "Tailwind CSS"],
-    imageUrl: "/placeholder.svg",
+    imageUrl: "https://images.unsplash.com/photo-1649972904349-6e44c42644a7?auto=format&fit=crop&w=800&q=60", // woman with laptop
     repoUrl: "https://github.com/ellisgraham/markdown-blog",
     demoUrl: "https://blog.ellisgraham.dev",
     featured: false,
