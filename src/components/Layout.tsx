@@ -6,14 +6,19 @@ import AnimatedWrapper from "./AnimatedWrapper";
 
 interface LayoutProps {
   children: ReactNode;
+  hideAnimation?: boolean;
 }
 
-export default function Layout({ children }: LayoutProps) {
+export default function Layout({ children, hideAnimation = false }: LayoutProps) {
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
       <main className="flex-grow">
-        <AnimatedWrapper>{children}</AnimatedWrapper>
+        {hideAnimation ? (
+          children
+        ) : (
+          <AnimatedWrapper>{children}</AnimatedWrapper>
+        )}
       </main>
       <Footer />
     </div>

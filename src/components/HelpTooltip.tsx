@@ -13,15 +13,28 @@ interface HelpTooltipProps {
   side?: "top" | "right" | "bottom" | "left";
   children?: ReactNode;
   className?: string;
+  size?: "sm" | "md" | "lg";
 }
 
-export default function HelpTooltip({ content, side = "top", children, className = "" }: HelpTooltipProps) {
+export default function HelpTooltip({ 
+  content, 
+  side = "top", 
+  children, 
+  className = "",
+  size = "md" 
+}: HelpTooltipProps) {
+  const sizeClasses = {
+    sm: "h-3.5 w-3.5",
+    md: "h-4 w-4",
+    lg: "h-5 w-5"
+  };
+
   return (
     <TooltipProvider>
       <Tooltip delayDuration={300}>
         <TooltipTrigger asChild>
           <div className={`inline-flex cursor-help ${className}`}>
-            {children || <InfoIcon className="h-4 w-4 text-muted-foreground hover:text-primary transition-colors" />}
+            {children || <InfoIcon className={`${sizeClasses[size]} text-muted-foreground hover:text-primary transition-colors`} />}
           </div>
         </TooltipTrigger>
         <TooltipContent side={side} className="max-w-xs">

@@ -26,6 +26,10 @@ const Blog = lazy(() => import("./pages/Blog"));
 const ThemeCustomizer = lazy(() => import("./pages/ThemeCustomizer"));
 const ResumeEditor = lazy(() => import("./pages/ResumeEditor"));
 const PortfolioSections = lazy(() => import("./pages/PortfolioSections"));
+const UserPortfolio = lazy(() => import("./pages/UserPortfolio"));
+const Community = lazy(() => import("./pages/Community"));
+const Discover = lazy(() => import("./pages/Discover"));
+const Help = lazy(() => import("./pages/Help"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -61,6 +65,10 @@ const App = () => (
             <Route path="/admin/messages" element={<AdminMessages />} />
             <Route path="/admin/users" element={<AdminUsers />} />
             <Route path="/admin/analytics" element={<AdminAnalytics />} />
+            <Route path="/community" element={<Community />} />
+            <Route path="/discover" element={<Discover />} />
+            <Route path="/help" element={<Help />} />
+            <Route path="/u/:username" element={<UserPortfolio />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

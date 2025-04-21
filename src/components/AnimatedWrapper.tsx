@@ -10,6 +10,24 @@ interface AnimatedWrapperProps {
   className?: string;
 }
 
+interface MotionVariants {
+  initial: {
+    opacity: number;
+    y?: number;
+    x?: number;
+  };
+  animate: {
+    opacity: number;
+    y?: number;
+    x?: number;
+  };
+  exit: {
+    opacity: number;
+    y?: number;
+    x?: number;
+  };
+}
+
 export default function AnimatedWrapper({ 
   children, 
   delay = 0, 
@@ -19,7 +37,7 @@ export default function AnimatedWrapper({
 }: AnimatedWrapperProps) {
   // Calculate initial and animate values based on direction
   const getVariants = () => {
-    const variants = {
+    const variants: MotionVariants = {
       initial: { opacity: 0 },
       animate: { opacity: 1 },
       exit: { opacity: 0 },
