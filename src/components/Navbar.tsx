@@ -1,316 +1,225 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, User } from "lucide-react";
-import { ThemeToggleButton } from "./ThemeToggleButton";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { 
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { supabase } from "@/integrations/supabase/client";
-
-interface ProfileData {
-  id: string;
-  full_name?: string;
-  avatar_url?: string;
-  [key: string]: any;
-}
+import { Menu, X, User, Settings, LogOut, Search, Users } from "lucide-react";
+import { ThemeToggleButton } from "./ThemeToggleButton";
+import { useAuth } from "@/hooks/useAuth";
+import { useUsername } from "@/hooks/useUsername";
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
-  const [user, setUser] = useState<any>(null);
-  const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const location = useLocation();
+  const { user, signOut } = useAuth();
+  const { username } = useUsername();
 
-  const toggleMenu = () => {
-    setIsOpen(!isOpen);
-  };
-
-  // Check active route
-  const isActive = (path: string) => {
-    return location.pathname === path;
-  };
-
-  useEffect(() => {
-    // Get current auth state
-    const getUser = async () => {
-      const { data } = await supabase.auth.getUser();
-      setUser(data?.user);
-      
-      if (data?.user) {
-        try {
-          // Get profile data using the correct table name
-          const { data: profile, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', data.user.id)
-            .single();
-            
-          if (error) {
-            console.error("Error fetching profile:", error);
-            return;
-          }
-            
-          setProfileData(profile);
-        } catch (error) {
-          console.error("Error fetching profile:", error);
-        }
-      }
-    };
-    
-    getUser();
-    
-    // Listen to auth changes
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setUser(session?.user || null);
-        
-        if (session?.user) {
-          try {
-            const { data, error } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', session.user.id)
-              .single();
-              
-            if (error) {
-              console.error("Error fetching profile:", error);
-              return;
-            }
-              
-            setProfileData(data);
-          } catch (error) {
-            console.error("Error fetching profile:", error);
-          }
-        } else {
-          setProfileData(null);
-        }
-      }
-    );
-    
-    // Cleanup
-    return () => {
-      authListener?.subscription?.unsubscribe();
-    };
-  }, []);
+  const navigation = [
+    { name: "Home", href: "/" },
+    { name: "Projects", href: "/projects" },
+    { name: "Skills", href: "/skills" },
+    { name: "Experience", href: "/experience" },
+    { name: "Blog", href: "/blog" },
+    { name: "Contact", href: "/contact" },
+    { name: "Discover", href: "/discover" },
+  ];
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    await signOut();
+    window.location.href = '/';
   };
 
   return (
-    <nav className="w-full py-4 px-6 md:px-12 flex justify-between items-center sticky top-0 z-50 bg-background/90 backdrop-blur-sm border-b">
-      <Link to="/" className="text-xl md:text-2xl font-bold text-primary flex items-center gap-2">
-        <span className="relative">
-          <div className="absolute -inset-1 bg-gradient-to-r from-primary to-blue-500 rounded-lg blur opacity-25"></div>
-          <div className="w-8 h-8 bg-background border border-primary/20 rounded-lg flex items-center justify-center relative">P</div>
-        </span>
-        <span className="hidden sm:inline-block">Portify</span>
-      </Link>
+    <nav className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between h-16">
+          <div className="flex items-center">
+            <Link to="/" className="text-xl font-bold">
+              {user && username ? `@${username}` : 'Portfolio'}
+            </Link>
+          </div>
 
-      {/* Desktop Navigation */}
-      <div className="hidden md:flex items-center space-x-8">
-        <div className="space-x-6">
-          <Link 
-            to="/" 
-            className={`hover:text-primary transition-colors ${isActive('/') ? 'text-primary font-medium' : ''}`}
-          >
-            Home
-          </Link>
-          <Link 
-            to="/projects" 
-            className={`hover:text-primary transition-colors ${isActive('/projects') ? 'text-primary font-medium' : ''}`}
-          >
-            Projects
-          </Link>
-          <Link 
-            to="/skills" 
-            className={`hover:text-primary transition-colors ${isActive('/skills') ? 'text-primary font-medium' : ''}`}
-          >
-            Skills
-          </Link>
-          <Link 
-            to="/experience" 
-            className={`hover:text-primary transition-colors ${isActive('/experience') ? 'text-primary font-medium' : ''}`}
-          >
-            Experience
-          </Link>
-          <Link 
-            to="/blog" 
-            className={`hover:text-primary transition-colors ${isActive('/blog') ? 'text-primary font-medium' : ''}`}
-          >
-            Blog
-          </Link>
-          <Link 
-            to="/contact" 
-            className={`hover:text-primary transition-colors ${isActive('/contact') ? 'text-primary font-medium' : ''}`}
-          >
-            Contact
-          </Link>
-        </div>
-        <div className="flex items-center space-x-3">
-          <ThemeToggleButton />
-          
-          {user ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-full">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={profileData?.avatar_url} />
-                    <AvatarFallback>
-                      {profileData?.full_name?.charAt(0) || user?.email?.charAt(0)?.toUpperCase() || "U"}
-                    </AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <div className="flex items-center justify-start gap-2 p-2">
-                  <div className="flex flex-col space-y-0.5 leading-none">
-                    {profileData?.full_name && (
-                      <p className="font-medium text-sm">{profileData.full_name}</p>
-                    )}
-                    <p className="text-xs text-muted-foreground">{user.email}</p>
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex items-center space-x-4">
+            {navigation.map((item) => (
+              <Link
+                key={item.name}
+                to={item.href}
+                className={`px-3 py-2 text-sm font-medium transition-colors hover:text-primary ${
+                  location.pathname === item.href
+                    ? "text-primary"
+                    : "text-muted-foreground"
+                }`}
+              >
+                {item.name}
+              </Link>
+            ))}
+            
+            <ThemeToggleButton />
+            
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={user.user_metadata?.avatar_url} />
+                      <AvatarFallback>
+                        {user.email?.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56" align="end" forceMount>
+                  <div className="flex items-center justify-start gap-2 p-2">
+                    <div className="flex flex-col space-y-1 leading-none">
+                      <p className="font-medium">{user.email}</p>
+                      {username && (
+                        <p className="text-xs text-muted-foreground">@{username}</p>
+                      )}
+                    </div>
                   </div>
-                </div>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link to="/profile">Profile Settings</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/admin">Dashboard</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/sections">Portfolio Sections</Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleSignOut}>
-                  Log Out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <Button size="sm" asChild>
-              <Link to="/auth">Sign In</Link>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link to="/profile">
+                      <User className="mr-2 h-4 w-4" />
+                      Profile
+                    </Link>
+                  </DropdownMenuItem>
+                  {username && (
+                    <DropdownMenuItem asChild>
+                      <Link to={`/${username}`}>
+                        <Search className="mr-2 h-4 w-4" />
+                        View Portfolio
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem asChild>
+                    <Link to="/discover">
+                      <Users className="mr-2 h-4 w-4" />
+                      Discover
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin">
+                      <Settings className="mr-2 h-4 w-4" />
+                      Dashboard
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Button asChild>
+                <Link to="/auth">Sign In</Link>
+              </Button>
+            )}
+          </div>
+
+          {/* Mobile menu button */}
+          <div className="md:hidden flex items-center space-x-2">
+            <ThemeToggleButton />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsOpen(!isOpen)}
+            >
+              {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
-          )}
+          </div>
         </div>
       </div>
 
-      {/* Mobile Navigation Toggle */}
-      <div className="md:hidden flex items-center gap-2">
-        <ThemeToggleButton />
-        <button
-          onClick={toggleMenu}
-          className="p-2 rounded-md focus:outline-none"
-        >
-          {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-        </button>
-      </div>
-
-      {/* Mobile Navigation Menu */}
+      {/* Mobile Navigation */}
       {isOpen && (
-        <div className="md:hidden absolute top-full left-0 right-0 p-5 bg-background border-b shadow-md animate-in fade-in slide-in-from-top-5 z-40">
-          <div className="flex flex-col space-y-4">
-            <Link
-              to="/"
-              className={`p-2 rounded-md transition-colors ${isActive('/') ? 'bg-secondary font-medium' : 'hover:bg-secondary'}`}
-              onClick={() => setIsOpen(false)}
-            >
-              Home
-            </Link>
-            <Link
-              to="/projects"
-              className={`p-2 rounded-md transition-colors ${isActive('/projects') ? 'bg-secondary font-medium' : 'hover:bg-secondary'}`}
-              onClick={() => setIsOpen(false)}
-            >
-              Projects
-            </Link>
-            <Link
-              to="/skills"
-              className={`p-2 rounded-md transition-colors ${isActive('/skills') ? 'bg-secondary font-medium' : 'hover:bg-secondary'}`}
-              onClick={() => setIsOpen(false)}
-            >
-              Skills
-            </Link>
-            <Link
-              to="/experience"
-              className={`p-2 rounded-md transition-colors ${isActive('/experience') ? 'bg-secondary font-medium' : 'hover:bg-secondary'}`}
-              onClick={() => setIsOpen(false)}
-            >
-              Experience
-            </Link>
-            <Link
-              to="/blog"
-              className={`p-2 rounded-md transition-colors ${isActive('/blog') ? 'bg-secondary font-medium' : 'hover:bg-secondary'}`}
-              onClick={() => setIsOpen(false)}
-            >
-              Blog
-            </Link>
-            <Link
-              to="/contact"
-              className={`p-2 rounded-md transition-colors ${isActive('/contact') ? 'bg-secondary font-medium' : 'hover:bg-secondary'}`}
-              onClick={() => setIsOpen(false)}
-            >
-              Contact
-            </Link>
+        <div className="md:hidden">
+          <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-background border-b">
+            {navigation.map((item) => (
+              <Link
+                key={item.name}
+                to={item.href}
+                className={`block px-3 py-2 text-base font-medium transition-colors hover:text-primary ${
+                  location.pathname === item.href
+                    ? "text-primary"
+                    : "text-muted-foreground"
+                }`}
+                onClick={() => setIsOpen(false)}
+              >
+                {item.name}
+              </Link>
+            ))}
             
             {user ? (
               <>
-                <div className="pt-2 border-t flex items-center">
-                  <Avatar className="h-8 w-8 mr-3">
-                    <AvatarImage src={profileData?.avatar_url} />
-                    <AvatarFallback>
-                      {profileData?.full_name?.charAt(0) || user?.email?.charAt(0)?.toUpperCase() || "U"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium">{profileData?.full_name || user?.email}</span>
-                    <span className="text-xs text-muted-foreground">Logged in</span>
+                <div className="border-t pt-2 mt-2">
+                  <div className="flex items-center px-3 py-2">
+                    <Avatar className="h-8 w-8 mr-3">
+                      <AvatarImage src={user.user_metadata?.avatar_url} />
+                      <AvatarFallback>
+                        {user.email?.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="text-sm font-medium">{user.email}</p>
+                      {username && (
+                        <p className="text-xs text-muted-foreground">@{username}</p>
+                      )}
+                    </div>
                   </div>
+                  <Link
+                    to="/profile"
+                    className="block px-3 py-2 text-base font-medium text-muted-foreground hover:text-primary"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    Profile
+                  </Link>
+                  {username && (
+                    <Link
+                      to={`/${username}`}
+                      className="block px-3 py-2 text-base font-medium text-muted-foreground hover:text-primary"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      View Portfolio
+                    </Link>
+                  )}
+                  <Link
+                    to="/admin"
+                    className="block px-3 py-2 text-base font-medium text-muted-foreground hover:text-primary"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    Dashboard
+                  </Link>
+                  <button
+                    onClick={() => {
+                      handleSignOut();
+                      setIsOpen(false);
+                    }}
+                    className="block w-full text-left px-3 py-2 text-base font-medium text-muted-foreground hover:text-primary"
+                  >
+                    Sign Out
+                  </button>
                 </div>
-                <Link
-                  to="/profile"
-                  className="p-2 hover:bg-secondary rounded-md transition-colors"
-                  onClick={() => setIsOpen(false)}
-                >
-                  Profile Settings
-                </Link>
-                <Link
-                  to="/admin"
-                  className="p-2 hover:bg-secondary rounded-md transition-colors"
-                  onClick={() => setIsOpen(false)}
-                >
-                  Dashboard
-                </Link>
-                <Link
-                  to="/sections"
-                  className="p-2 hover:bg-secondary rounded-md transition-colors"
-                  onClick={() => setIsOpen(false)}
-                >
-                  Portfolio Sections
-                </Link>
-                <Button 
-                  variant="ghost" 
-                  className="justify-start pl-2 font-normal"
-                  onClick={() => {
-                    handleSignOut();
-                    setIsOpen(false);
-                  }}
-                >
-                  Log Out
-                </Button>
               </>
             ) : (
-              <Button className="w-full mt-2" asChild>
-                <Link to="/auth" onClick={() => setIsOpen(false)}>
+              <div className="border-t pt-2 mt-2">
+                <Link
+                  to="/auth"
+                  className="block px-3 py-2 text-base font-medium text-muted-foreground hover:text-primary"
+                  onClick={() => setIsOpen(false)}
+                >
                   Sign In
                 </Link>
-              </Button>
+              </div>
             )}
           </div>
         </div>

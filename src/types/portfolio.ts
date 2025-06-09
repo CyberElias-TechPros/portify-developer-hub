@@ -18,9 +18,10 @@ export interface Profile {
   updated_at?: string;
 }
 
-// Project type
+// Project type with user association
 export interface Project {
   id: string;
+  user_id?: string;
   title: string;
   description: string;
   longDescription?: string;
@@ -33,22 +34,29 @@ export interface Project {
   forks?: number;
   contributors?: number;
   category?: string;
+  is_public?: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
-// Skill type
+// Skill type with user association
 export interface Skill {
   id: string;
+  user_id?: string;
   name: string;
-  category: string; // Changed from enum to string to match database
+  category: string;
   proficiency: number; // 0-100
   iconUrl?: string;
   yearAcquired?: number;
   endorsed?: number;
+  created_at?: string;
+  updated_at?: string;
 }
 
-// Experience type
+// Experience type with user association
 export interface Experience {
   id: string;
+  user_id?: string;
   company: string;
   position: string;
   startDate: string;
@@ -59,33 +67,15 @@ export interface Experience {
   current?: boolean;
   technologies?: string[];
   projects?: string[];
-  testimonials?: Testimonial[];
+  is_public?: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
-// Testimonial type
-export interface Testimonial {
-  id: string;
-  name: string;
-  position: string;
-  company: string;
-  text: string;
-  date: string;
-}
-
-// Education type
-export interface Education {
-  id: string;
-  institution: string;
-  degree: string;
-  field: string;
-  startDate: string;
-  endDate: string;
-  logoUrl?: string;
-}
-
-// Blog post type
+// Blog post type with user association
 export interface BlogPost {
   id: string;
+  user_id?: string;
   title: string;
   content: string;
   excerpt: string;
@@ -97,29 +87,94 @@ export interface BlogPost {
   series?: string;
   readingTime?: number;
   published?: boolean;
-  comments?: Comment[];
-  reactions?: Reaction[];
+  is_public?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// Username type for vanity URLs
+export interface Username {
+  id: string;
+  user_id: string;
+  username: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// User follow relationship
+export interface UserFollow {
+  id: string;
+  follower_id: string;
+  following_id: string;
+  created_at: string;
 }
 
 // Comment type
 export interface Comment {
   id: string;
-  userId: string;
-  userName: string;
-  userAvatar?: string;
+  user_id: string;
+  content_type: 'project' | 'blog_post';
+  content_id: string;
   content: string;
-  createdAt: string;
-  parentId?: string;
+  parent_id?: string;
+  created_at: string;
+  updated_at: string;
+  user?: Profile;
+  replies?: Comment[];
 }
 
 // Reaction type
 export interface Reaction {
   id: string;
-  userId: string;
-  type: 'like' | 'love' | 'celebrate' | 'insightful' | 'funny';
+  user_id: string;
+  content_type: 'project' | 'blog_post' | 'comment';
+  content_id: string;
+  reaction_type: 'like' | 'love' | 'celebrate' | 'insightful' | 'funny';
+  created_at: string;
+  user?: Profile;
 }
 
-// ContactMessage type
+// Activity feed type
+export interface ActivityFeed {
+  id: string;
+  user_id: string;
+  actor_id: string;
+  activity_type: 'follow' | 'project_create' | 'blog_post_create' | 'comment' | 'reaction';
+  content_type?: string;
+  content_id?: string;
+  metadata: any;
+  created_at: string;
+  actor?: Profile;
+}
+
+// User role type
+export interface UserRole {
+  id: string;
+  user_id: string;
+  role: 'admin' | 'moderator' | 'user';
+  created_at: string;
+}
+
+// Rest of the original types remain the same...
+export interface Testimonial {
+  id: string;
+  name: string;
+  position: string;
+  company: string;
+  text: string;
+  date: string;
+}
+
+export interface Education {
+  id: string;
+  institution: string;
+  degree: string;
+  field: string;
+  startDate: string;
+  endDate: string;
+  logoUrl?: string;
+}
+
 export interface ContactMessage {
   id: string;
   name: string;
@@ -130,14 +185,6 @@ export interface ContactMessage {
   read: boolean;
 }
 
-// User role type
-export interface UserRole {
-  id: string;
-  userId: string;
-  role: 'admin' | 'editor' | 'viewer';
-}
-
-// Resume type
 export interface Resume {
   id: string;
   userId: string;
@@ -149,7 +196,6 @@ export interface Resume {
   pdfUrl?: string;
 }
 
-// Analytics type
 export interface Analytics {
   pageViews: number;
   uniqueVisitors: number;
@@ -161,7 +207,6 @@ export interface Analytics {
   downloadCounts: { [key: string]: number };
 }
 
-// Section type
 export interface Section {
   id: string;
   title: string;
@@ -172,7 +217,6 @@ export interface Section {
   customFields?: { [key: string]: any };
 }
 
-// Theme type
 export interface Theme {
   id: string;
   name: string;
@@ -192,7 +236,6 @@ export interface Theme {
   darkMode: boolean;
 }
 
-// Contact Info type for site settings
 export interface ContactInfo {
   email: string;
   phone: string;
@@ -200,10 +243,9 @@ export interface ContactInfo {
   github: string;
   twitter: string;
   linkedin: string;
-  [key: string]: string; // Index signature for JSON compatibility
+  [key: string]: string;
 }
 
-// Social Links type for site settings
 export interface SocialLinks {
   github: string;
   twitter: string;
@@ -211,10 +253,9 @@ export interface SocialLinks {
   instagram: string;
   youtube: string;
   facebook: string;
-  [key: string]: string; // Index signature for JSON compatibility
+  [key: string]: string;
 }
 
-// Site Info type for site settings
 export interface SiteInfo {
   title: string;
   description: string;
@@ -222,10 +263,9 @@ export interface SiteInfo {
   author: string;
   logoUrl: string;
   faviconUrl: string;
-  [key: string]: string; // Index signature for JSON compatibility
+  [key: string]: string;
 }
 
-// Site Settings type
 export interface SiteSetting {
   id: string;
   key: string;
@@ -234,7 +274,6 @@ export interface SiteSetting {
   updatedAt?: string;
 }
 
-// Create a custom type for using Supabase directly with these tables
 export interface CustomSupabaseClient {
   from(table: 'site_settings'): any;
   from(table: 'projects'): any;
@@ -244,6 +283,12 @@ export interface CustomSupabaseClient {
   from(table: 'contact_messages'): any;
   from(table: 'profiles'): any;
   from(table: 'skill_endorsements'): any;
+  from(table: 'usernames'): any;
+  from(table: 'user_follows'): any;
+  from(table: 'comments'): any;
+  from(table: 'reactions'): any;
+  from(table: 'activity_feed'): any;
+  from(table: 'user_roles'): any;
   from(table: string): any;
 }
 
@@ -270,8 +315,22 @@ export const adaptDbProfileToProfile = (dbProfile: any): Profile => {
   };
 };
 
-// A helper function to get an array of profiles
 export const adaptDbProfilesToProfiles = (dbProfiles: any[]): Profile[] => {
   if (!dbProfiles || !Array.isArray(dbProfiles)) return [];
   return dbProfiles.map(adaptDbProfileToProfile);
 };
+
+// Auth utility functions
+export interface AuthUser {
+  id: string;
+  email?: string;
+  user_metadata?: any;
+  app_metadata?: any;
+}
+
+export interface AuthSession {
+  user: AuthUser;
+  access_token: string;
+  refresh_token: string;
+  expires_at?: number;
+}

@@ -5,6 +5,7 @@ import Layout from '@/components/Layout';
 import LoadingState from '@/components/LoadingState';
 import { supabase } from '@/integrations/supabase/client';
 import { Profile, adaptDbProfileToProfile } from '@/types/portfolio';
+import { getUserIdByUsername } from '@/hooks/useUsername';
 import Hero from '@/components/home/Hero';
 import ProjectsShowcase from '@/components/home/ProjectsShowcase';
 import Skills from '@/components/home/Skills';
@@ -15,6 +16,7 @@ export default function UserPortfolio() {
   const { username } = useParams<{ username: string }>();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -22,23 +24,45 @@ export default function UserPortfolio() {
       try {
         setLoading(true);
         
-        // Fetch user profile by username
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', username) // Using ID for now, can change to username field later
-          .single();
-
-        if (error) {
-          throw error;
-        }
-
-        if (!data) {
-          setError('User not found');
+        if (!username) {
+          setError('Username is required');
           return;
         }
 
-        setProfile(adaptDbProfileToProfile(data));
+        // First try to resolve username to user ID
+        const resolvedUserId = await getUserIdByUsername(username);
+        
+        if (!resolvedUserId) {
+          // If username doesn't exist, try to fetch by ID directly (backward compatibility)
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', username)
+            .single();
+
+          if (error || !data) {
+            setError('User not found');
+            return;
+          }
+
+          setUserId(data.id);
+          setProfile(adaptDbProfileToProfile(data));
+        } else {
+          // Fetch profile by resolved user ID
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', resolvedUserId)
+            .single();
+
+          if (error || !data) {
+            setError('User profile not found');
+            return;
+          }
+
+          setUserId(resolvedUserId);
+          setProfile(adaptDbProfileToProfile(data));
+        }
       } catch (err: any) {
         console.error('Error fetching user profile:', err);
         setError(err.message || 'Failed to load user profile');
@@ -56,7 +80,7 @@ export default function UserPortfolio() {
     return <LoadingState />;
   }
 
-  if (error || !profile) {
+  if (error || !profile || !userId) {
     return (
       <Layout>
         <div className="container py-20 text-center">
@@ -73,9 +97,9 @@ export default function UserPortfolio() {
     <Layout>
       <div className="bg-background">
         <Hero userProfile={profile} />
-        <ProjectsShowcase userId={profile.id} />
-        <Skills userId={profile.id} />
-        <Experience userId={profile.id} />
+        <ProjectsShowcase userId={userId} />
+        <Skills userId={userId} />
+        <Experience userId={userId} />
         <ContactSection userProfile={profile} />
       </div>
     </Layout>

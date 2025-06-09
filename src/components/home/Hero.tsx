@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { profile } from "@/data/mock-data";
 import { Profile } from "@/types/portfolio";
+import FollowButton from "@/components/community/FollowButton";
 
 interface HeroProps {
   userProfile?: Profile;
@@ -37,6 +38,11 @@ export default function Hero({ userProfile = profile }: HeroProps) {
               <Link to="/contact">Contact Me</Link>
             </Button>
           </div>
+          {userProfile.id && (
+            <div className="pt-4">
+              <FollowButton targetUserId={userProfile.id} showCount />
+            </div>
+          )}
         </div>
         <div className="relative rounded-2xl overflow-hidden h-64 md:h-96 bg-secondary shadow-xl flex items-center justify-center animate-scale-in">
           {(userProfile.avatarUrl || userProfile.avatar_url) ? (

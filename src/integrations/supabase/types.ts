@@ -9,6 +9,39 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      activity_feed: {
+        Row: {
+          activity_type: string
+          actor_id: string
+          content_id: string | null
+          content_type: string | null
+          created_at: string | null
+          id: string
+          metadata: Json | null
+          user_id: string
+        }
+        Insert: {
+          activity_type: string
+          actor_id: string
+          content_id?: string | null
+          content_type?: string | null
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          user_id: string
+        }
+        Update: {
+          activity_type?: string
+          actor_id?: string
+          content_id?: string | null
+          content_type?: string | null
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       blog_posts: {
         Row: {
           category: string | null
@@ -17,6 +50,7 @@ export type Database = {
           created_at: string | null
           excerpt: string | null
           id: string
+          is_public: boolean | null
           publish_date: string | null
           published: boolean | null
           reading_time: number | null
@@ -25,6 +59,7 @@ export type Database = {
           tags: string[] | null
           title: string
           updated_at: string | null
+          user_id: string | null
         }
         Insert: {
           category?: string | null
@@ -33,6 +68,7 @@ export type Database = {
           created_at?: string | null
           excerpt?: string | null
           id?: string
+          is_public?: boolean | null
           publish_date?: string | null
           published?: boolean | null
           reading_time?: number | null
@@ -41,6 +77,7 @@ export type Database = {
           tags?: string[] | null
           title: string
           updated_at?: string | null
+          user_id?: string | null
         }
         Update: {
           category?: string | null
@@ -49,6 +86,7 @@ export type Database = {
           created_at?: string | null
           excerpt?: string | null
           id?: string
+          is_public?: boolean | null
           publish_date?: string | null
           published?: boolean | null
           reading_time?: number | null
@@ -57,8 +95,50 @@ export type Database = {
           tags?: string[] | null
           title?: string
           updated_at?: string | null
+          user_id?: string | null
         }
         Relationships: []
+      }
+      comments: {
+        Row: {
+          content: string
+          content_id: string
+          content_type: string
+          created_at: string | null
+          id: string
+          parent_id: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          content: string
+          content_id: string
+          content_type: string
+          created_at?: string | null
+          id?: string
+          parent_id?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          content?: string
+          content_id?: string
+          content_type?: string
+          created_at?: string | null
+          id?: string
+          parent_id?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "comments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       contact_messages: {
         Row: {
@@ -97,6 +177,7 @@ export type Database = {
           description: string
           end_date: string | null
           id: string
+          is_public: boolean | null
           location: string | null
           logo_url: string | null
           position: string
@@ -104,6 +185,7 @@ export type Database = {
           start_date: string
           technologies: string[] | null
           updated_at: string | null
+          user_id: string | null
         }
         Insert: {
           company: string
@@ -111,6 +193,7 @@ export type Database = {
           description: string
           end_date?: string | null
           id?: string
+          is_public?: boolean | null
           location?: string | null
           logo_url?: string | null
           position: string
@@ -118,6 +201,7 @@ export type Database = {
           start_date: string
           technologies?: string[] | null
           updated_at?: string | null
+          user_id?: string | null
         }
         Update: {
           company?: string
@@ -125,6 +209,7 @@ export type Database = {
           description?: string
           end_date?: string | null
           id?: string
+          is_public?: boolean | null
           location?: string | null
           logo_url?: string | null
           position?: string
@@ -132,6 +217,7 @@ export type Database = {
           start_date?: string
           technologies?: string[] | null
           updated_at?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -188,12 +274,14 @@ export type Database = {
           forks: number | null
           id: string
           image_url: string | null
+          is_public: boolean | null
           long_description: string | null
           repo_url: string | null
           stars: number | null
           tags: string[] | null
           title: string
           updated_at: string | null
+          user_id: string | null
         }
         Insert: {
           category?: string | null
@@ -205,12 +293,14 @@ export type Database = {
           forks?: number | null
           id?: string
           image_url?: string | null
+          is_public?: boolean | null
           long_description?: string | null
           repo_url?: string | null
           stars?: number | null
           tags?: string[] | null
           title: string
           updated_at?: string | null
+          user_id?: string | null
         }
         Update: {
           category?: string | null
@@ -222,12 +312,41 @@ export type Database = {
           forks?: number | null
           id?: string
           image_url?: string | null
+          is_public?: boolean | null
           long_description?: string | null
           repo_url?: string | null
           stars?: number | null
           tags?: string[] | null
           title?: string
           updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      reactions: {
+        Row: {
+          content_id: string
+          content_type: string
+          created_at: string | null
+          id: string
+          reaction_type: string
+          user_id: string
+        }
+        Insert: {
+          content_id: string
+          content_type: string
+          created_at?: string | null
+          id?: string
+          reaction_type: string
+          user_id: string
+        }
+        Update: {
+          content_id?: string
+          content_type?: string
+          created_at?: string | null
+          id?: string
+          reaction_type?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -323,15 +442,95 @@ export type Database = {
         }
         Relationships: []
       }
+      user_follows: {
+        Row: {
+          created_at: string | null
+          follower_id: string
+          following_id: string
+          id: string
+        }
+        Insert: {
+          created_at?: string | null
+          follower_id: string
+          following_id: string
+          id?: string
+        }
+        Update: {
+          created_at?: string | null
+          follower_id?: string
+          following_id?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      usernames: {
+        Row: {
+          created_at: string | null
+          id: string
+          updated_at: string | null
+          user_id: string
+          username: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id: string
+          username: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id?: string
+          username?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_id_by_username: {
+        Args: { _username: string }
+        Returns: string
+      }
+      get_username_by_user_id: {
+        Args: { _user_id: string }
+        Returns: string
+      }
+      has_role: {
+        Args: {
+          _user_id: string
+          _role: Database["public"]["Enums"]["app_role"]
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "moderator" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -446,6 +645,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "moderator", "user"],
+    },
   },
 } as const
