@@ -48,8 +48,9 @@ export default function Comments({ contentType, contentId }: CommentsProps) {
       const rootComments: Comment[] = [];
 
       data.forEach(comment => {
-        const formattedComment = {
+        const formattedComment: Comment = {
           ...comment,
+          content_type: comment.content_type as 'project' | 'blog_post',
           replies: []
         };
         commentMap.set(comment.id, formattedComment);

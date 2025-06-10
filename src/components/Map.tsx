@@ -57,8 +57,8 @@ export default function Map({ address = "San Francisco, CA", height = "400px", c
         iframe.height = '100%';
         iframe.frameBorder = '0';
         iframe.scrolling = 'no';
-        iframe.marginHeight = 0;
-        iframe.marginWidth = 0;
+        iframe.marginHeight = '0';
+        iframe.marginWidth = '0';
         iframe.src = embedUrl;
         iframe.style.borderRadius = '0.5rem';
         
@@ -82,7 +82,7 @@ export default function Map({ address = "San Francisco, CA", height = "400px", c
   return (
     <Card className={`overflow-hidden ${className}`}>
       {loading ? (
-        <Skeleton className={`w-full ${height}`} />
+        <Skeleton className="w-full" style={{ height }} />
       ) : (
         <div 
           ref={mapRef} 

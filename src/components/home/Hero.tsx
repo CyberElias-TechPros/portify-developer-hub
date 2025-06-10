@@ -10,7 +10,7 @@ interface HeroProps {
   userProfile?: Profile;
 }
 
-export default function Hero({ userProfile = profile }: HeroProps) {
+export default function Hero({ userProfile = { ...profile, id: 'mock-user-id' } }: HeroProps) {
   return (
     <section className="w-full py-16 md:py-24 px-6 md:px-12 lg:px-24 overflow-hidden">
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 items-center">

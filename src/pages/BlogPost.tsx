@@ -5,7 +5,6 @@ import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import {
   Tooltip,
@@ -21,7 +20,6 @@ import {
   Share2, 
   Bookmark,
   ThumbsUp,
-  Star,
   PartyPopper,
   Lightbulb,
   Laugh
@@ -134,9 +132,7 @@ A well-designed portfolio showcases not just your projects, but also your attent
         category: "Web Development",
         series: "Modern Web Development",
         readingTime: 8,
-        published: true,
-        comments: [],
-        reactions: []
+        published: true
       });
       setLoading(false);
       
@@ -144,27 +140,48 @@ A well-designed portfolio showcases not just your projects, but also your attent
       setComments([
         {
           id: "1",
-          userId: "user1",
-          userName: "Sarah Johnson",
-          userAvatar: "/placeholder.svg",
+          user_id: "user1",
+          content_type: "blog_post",
+          content_id: "1",
           content: "Great article! I've been looking for a guide like this.",
-          createdAt: "2023-10-16T14:32:00Z"
+          parent_id: null,
+          created_at: "2023-10-16T14:32:00Z",
+          updated_at: "2023-10-16T14:32:00Z",
+          user: {
+            id: "user1",
+            full_name: "Sarah Johnson",
+            avatar_url: "/placeholder.svg"
+          }
         },
         {
           id: "2",
-          userId: "user2",
-          userName: "Michael Chen",
-          userAvatar: "/placeholder.svg",
+          user_id: "user2",
+          content_type: "blog_post",
+          content_id: "1",
           content: "Thanks for sharing these insights. The dark mode implementation is particularly helpful.",
-          createdAt: "2023-10-16T16:45:00Z"
+          parent_id: null,
+          created_at: "2023-10-16T16:45:00Z",
+          updated_at: "2023-10-16T16:45:00Z",
+          user: {
+            id: "user2",
+            full_name: "Michael Chen",
+            avatar_url: "/placeholder.svg"
+          }
         },
         {
           id: "3",
-          userId: "user3",
-          userName: "Jessica Williams",
-          userAvatar: "/placeholder.svg",
+          user_id: "user3",
+          content_type: "blog_post",
+          content_id: "1",
           content: "I implemented your suggestions and my portfolio looks much better now. One question though - do you have any recommendations for animation libraries that work well with React?",
-          createdAt: "2023-10-17T09:12:00Z"
+          parent_id: null,
+          created_at: "2023-10-17T09:12:00Z",
+          updated_at: "2023-10-17T09:12:00Z",
+          user: {
+            id: "user3",
+            full_name: "Jessica Williams",
+            avatar_url: "/placeholder.svg"
+          }
         }
       ]);
     }, 500);
@@ -176,11 +193,18 @@ A well-designed portfolio showcases not just your projects, but also your attent
     
     const comment: Comment = {
       id: `comment-${Date.now()}`,
-      userId: "current-user",
-      userName: profile.name,
-      userAvatar: profile.avatarUrl,
+      user_id: "current-user",
+      content_type: "blog_post",
+      content_id: "1",
       content: newComment,
-      createdAt: new Date().toISOString()
+      parent_id: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      user: {
+        id: "current-user",
+        full_name: profile.name,
+        avatar_url: profile.avatarUrl
+      }
     };
     
     setComments([...comments, comment]);
@@ -429,14 +453,14 @@ A well-designed portfolio showcases not just your projects, but also your attent
                 <CardContent className="py-4">
                   <div className="flex gap-4">
                     <Avatar className="h-10 w-10">
-                      <AvatarImage src={comment.userAvatar} alt={comment.userName} />
-                      <AvatarFallback>{comment.userName[0]}</AvatarFallback>
+                      <AvatarImage src={comment.user?.avatar_url} alt={comment.user?.full_name} />
+                      <AvatarFallback>{comment.user?.full_name?.[0] || 'U'}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
-                        <div className="font-medium">{comment.userName}</div>
+                        <div className="font-medium">{comment.user?.full_name}</div>
                         <div className="text-xs text-muted-foreground">
-                          {new Date(comment.createdAt).toLocaleDateString()}
+                          {new Date(comment.created_at).toLocaleDateString()}
                         </div>
                       </div>
                       <div className="mt-2">

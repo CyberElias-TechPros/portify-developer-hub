@@ -31,7 +31,28 @@ export function useUserProjects(userId: string | null) {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setProjects(data || []);
+      
+      const mappedProjects: Project[] = (data || []).map(project => ({
+        id: project.id,
+        user_id: project.user_id,
+        title: project.title,
+        description: project.description,
+        longDescription: project.long_description,
+        tags: project.tags || [],
+        imageUrl: project.image_url || '',
+        repoUrl: project.repo_url || '',
+        demoUrl: project.demo_url,
+        featured: project.featured || false,
+        stars: project.stars,
+        forks: project.forks,
+        contributors: project.contributors,
+        category: project.category,
+        is_public: project.is_public,
+        created_at: project.created_at,
+        updated_at: project.updated_at
+      }));
+      
+      setProjects(mappedProjects);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -106,7 +127,26 @@ export function useUserExperiences(userId: string | null) {
         .order('start_date', { ascending: false });
 
       if (error) throw error;
-      setExperiences(data || []);
+      
+      const mappedExperiences: Experience[] = (data || []).map(exp => ({
+        id: exp.id,
+        user_id: exp.user_id,
+        company: exp.company,
+        position: exp.position,
+        startDate: exp.start_date,
+        endDate: exp.end_date,
+        description: exp.description,
+        logoUrl: exp.logo_url,
+        location: exp.location,
+        current: !exp.end_date,
+        technologies: exp.technologies,
+        projects: exp.projects,
+        is_public: exp.is_public,
+        created_at: exp.created_at,
+        updated_at: exp.updated_at
+      }));
+      
+      setExperiences(mappedExperiences);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -145,7 +185,27 @@ export function useUserBlogPosts(userId: string | null) {
         .order('publish_date', { ascending: false });
 
       if (error) throw error;
-      setBlogPosts(data || []);
+      
+      const mappedBlogPosts: BlogPost[] = (data || []).map(post => ({
+        id: post.id,
+        user_id: post.user_id,
+        title: post.title,
+        content: post.content,
+        excerpt: post.excerpt,
+        slug: post.slug,
+        publishDate: post.publish_date,
+        tags: post.tags || [],
+        coverImageUrl: post.cover_image_url,
+        category: post.category,
+        series: post.series,
+        readingTime: post.reading_time,
+        published: post.published,
+        is_public: post.is_public,
+        created_at: post.created_at,
+        updated_at: post.updated_at
+      }));
+      
+      setBlogPosts(mappedBlogPosts);
     } catch (err: any) {
       setError(err.message);
     } finally {

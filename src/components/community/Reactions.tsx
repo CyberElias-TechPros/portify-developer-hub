@@ -51,10 +51,16 @@ export default function Reactions({ contentType, contentId }: ReactionsProps) {
 
       // Group reactions by type
       const groupedReactions = data.reduce((acc, reaction) => {
+        const typedReaction: Reaction = {
+          ...reaction,
+          content_type: reaction.content_type as 'project' | 'blog_post' | 'comment',
+          reaction_type: reaction.reaction_type as 'like' | 'love' | 'celebrate' | 'insightful' | 'funny'
+        };
+        
         if (!acc[reaction.reaction_type]) {
           acc[reaction.reaction_type] = [];
         }
-        acc[reaction.reaction_type].push(reaction);
+        acc[reaction.reaction_type].push(typedReaction);
         return acc;
       }, {} as Record<string, Reaction[]>);
 
