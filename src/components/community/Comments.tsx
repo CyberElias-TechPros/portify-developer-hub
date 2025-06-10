@@ -47,10 +47,11 @@ export default function Comments({ contentType, contentId }: CommentsProps) {
       const commentMap = new Map();
       const rootComments: Comment[] = [];
 
-      data.forEach(comment => {
+      (data || []).forEach(comment => {
         const formattedComment: Comment = {
           ...comment,
           content_type: comment.content_type as 'project' | 'blog_post',
+          user: Array.isArray(comment.user) ? comment.user[0] : comment.user,
           replies: []
         };
         commentMap.set(comment.id, formattedComment);
@@ -153,7 +154,7 @@ export default function Comments({ contentType, contentId }: CommentsProps) {
       <CardContent className="p-4">
         <div className="flex items-start space-x-3">
           <Avatar className="h-8 w-8">
-            <AvatarImage src={comment.user?.avatar_url} />
+            <AvatarImage src={comment.user?.avatar_url || ''} />
             <AvatarFallback>
               {comment.user?.full_name?.charAt(0) || 'U'}
             </AvatarFallback>
