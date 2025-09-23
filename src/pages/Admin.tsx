@@ -57,7 +57,7 @@ export default function Admin() {
     github: "https://github.com/ellisgraham",
     twitter: "https://twitter.com/ellisgraham",
     linkedin: "https://linkedin.com/in/ellisgraham",
-    avatarUrl: "/placeholder.svg",
+    avatarUrl: "",
   });
   
   const [theme, setTheme] = useState<ThemeSettings>({
