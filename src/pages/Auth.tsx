@@ -1,158 +1,87 @@
-
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Mail, Lock, Github, Linkedin } from "lucide-react";
+import { Mail, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import Layout from "@/components/Layout";
 
-const loginSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-});
-
-const registerSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-  confirmPassword: z.string().min(6, "Password must be at least 6 characters"),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ["confirmPassword"],
-});
-
+const passwordSchema = z.string().min(8, "Password must be at least 8 characters").regex(/[A-Za-z]/, "Password must include a letter").regex(/\d/, "Password must include a number");
+const loginSchema = z.object({ email: z.string().email("Please enter a valid email address"), password: passwordSchema });
+const registerSchema = z.object({ email: z.string().email("Please enter a valid email address"), password: passwordSchema, confirmPassword: z.string() }).refine((data) => data.password === data.confirmPassword, { message: "Passwords don't match", path: ["confirmPassword"] });
 type LoginForm = z.infer<typeof loginSchema>;
 type RegisterForm = z.infer<typeof registerSchema>;
 
+function errorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object" && "message" in error && typeof (error as { message?: unknown }).message === "string") return (error as { message: string }).message;
+  return "Something went wrong. Please try again.";
+}
+
 export default function Auth() {
+  const { signIn, signUp, resetPassword } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
   const [isLoading, setIsLoading] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const [activeTab, setActiveTab] = useState("login");
+  const requestedFrom = (location.state as { from?: unknown } | null)?.from;
+  const from = typeof requestedFrom === "string" && requestedFrom.startsWith("/") && !requestedFrom.startsWith("//") ? requestedFrom : "/";
 
-  const loginForm = useForm<LoginForm>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-    },
-  });
-
-  const registerForm = useForm<RegisterForm>({
-    resolver: zodResolver(registerSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-      confirmPassword: "",
-    },
-  });
+  const loginForm = useForm<LoginForm>({ resolver: zodResolver(loginSchema), defaultValues: { email: "", password: "" } });
+  const registerForm = useForm<RegisterForm>({ resolver: zodResolver(registerSchema), defaultValues: { email: "", password: "", confirmPassword: "" } });
 
   const handleLogin = async (data: LoginForm) => {
     setIsLoading(true);
-    try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: data.email,
-        password: data.password,
-      });
-
-      if (error) throw error;
-      
-      toast({
-        title: "Success",
-        description: "You have successfully logged in",
-      });
-      
-      navigate("/");
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
+    const result = await signIn(data.email, data.password) as { error?: unknown };
+    setIsLoading(false);
+    if (result.error) {
+      toast({ title: "Unable to sign in", description: errorMessage(result.error), variant: "destructive" });
+      return;
     }
+    toast({ title: "Welcome back", description: "You have successfully signed in." });
+    navigate(from, { replace: true });
   };
 
   const handleRegister = async (data: RegisterForm) => {
     setIsLoading(true);
-    try {
-      const { error } = await supabase.auth.signUp({
-        email: data.email,
-        password: data.password,
-      });
-
-      if (error) throw error;
-      
-      toast({
-        title: "Success",
-        description: "Registration successful. Please check your email to verify your account.",
-      });
-      
-      setActiveTab("login");
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
+    const result = await signUp(data.email, data.password) as { error?: unknown };
+    setIsLoading(false);
+    if (result.error) {
+      toast({ title: "Could not create account", description: errorMessage(result.error), variant: "destructive" });
+      return;
     }
+    toast({ title: "Account created", description: "Your portfolio workspace is ready." });
+    navigate("/profile", { replace: true });
   };
 
-  const handleOAuthLogin = async (provider: "github" | "linkedin") => {
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-        },
-      });
-
-      if (error) throw error;
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+  const handlePasswordReset = async () => {
+    const email = loginForm.getValues("email");
+    if (!email) {
+      toast({ title: "Email required", description: "Enter your email address first.", variant: "destructive" });
+      return;
     }
-  };
-
-  const handlePasswordReset = async (email: string) => {
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/reset-password`,
-      });
-
-      if (error) throw error;
-      
-      toast({
-        title: "Success",
-        description: "Password reset instructions sent to your email",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+    const parsed = z.string().email().safeParse(email);
+    if (!parsed.success) {
+      toast({ title: "Invalid email", description: "Enter a valid email address first.", variant: "destructive" });
+      return;
     }
+    setResetting(true);
+    const result = await resetPassword(email) as { error?: unknown };
+    setResetting(false);
+    if (result.error) {
+      toast({ title: "Unable to request reset", description: errorMessage(result.error), variant: "destructive" });
+      return;
+    }
+    toast({ title: "Check your inbox", description: "If an account exists for that email, reset instructions are on their way." });
   };
 
   return (
@@ -160,181 +89,34 @@ export default function Auth() {
       <div className="flex min-h-[80vh] items-center justify-center px-4 py-12">
         <Card className="w-full max-w-md">
           <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl font-bold text-center">
-              {activeTab === "login" ? "Sign In" : "Create an Account"}
-            </CardTitle>
-            <CardDescription className="text-center">
-              {activeTab === "login"
-                ? "Enter your credentials to access your account"
-                : "Create a new account to get started"}
-            </CardDescription>
+            <CardTitle className="text-2xl font-bold text-center">{activeTab === "login" ? "Sign in to Portify" : "Create your workspace"}</CardTitle>
+            <CardDescription className="text-center">{activeTab === "login" ? "Manage your portfolio from one secure workspace." : "Publish your work with an edge-backed portfolio."}</CardDescription>
           </CardHeader>
-          
           <CardContent>
-            <Tabs defaultValue="login" value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-2 mb-8">
-                <TabsTrigger value="login">Login</TabsTrigger>
-                <TabsTrigger value="register">Register</TabsTrigger>
-              </TabsList>
-              
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="grid w-full grid-cols-2 mb-8"><TabsTrigger value="login">Sign in</TabsTrigger><TabsTrigger value="register">Register</TabsTrigger></TabsList>
               <TabsContent value="login">
                 <Form {...loginForm}>
                   <form onSubmit={loginForm.handleSubmit(handleLogin)} className="space-y-4">
-                    <FormField
-                      control={loginForm.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Email</FormLabel>
-                          <div className="relative">
-                            <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                            <FormControl>
-                              <Input placeholder="you@example.com" className="pl-10" {...field} />
-                            </FormControl>
-                          </div>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={loginForm.control}
-                      name="password"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Password</FormLabel>
-                          <div className="relative">
-                            <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                            <FormControl>
-                              <Input type="password" placeholder="••••••••" className="pl-10" {...field} />
-                            </FormControl>
-                          </div>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <Button
-                      type="submit"
-                      className="w-full"
-                      disabled={isLoading}
-                    >
-                      {isLoading ? "Signing in..." : "Sign In"}
-                    </Button>
+                    <FormField control={loginForm.control} name="email" render={({ field }) => <FormItem><FormLabel>Email</FormLabel><div className="relative"><Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" aria-hidden="true" /><FormControl><Input type="email" autoComplete="email" placeholder="you@example.com" className="pl-10" {...field} /></FormControl></div><FormMessage /></FormItem>} />
+                    <FormField control={loginForm.control} name="password" render={({ field }) => <FormItem><FormLabel>Password</FormLabel><div className="relative"><Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" aria-hidden="true" /><FormControl><Input type="password" autoComplete="current-password" placeholder="Your password" className="pl-10" {...field} /></FormControl></div><FormMessage /></FormItem>} />
+                    <Button type="submit" className="w-full" disabled={isLoading}>{isLoading ? "Signing in…" : "Sign in"}</Button>
                   </form>
                 </Form>
-                
-                <div className="mt-4">
-                  <Button
-                    variant="link"
-                    className="px-0 text-sm"
-                    onClick={() => {
-                      const email = loginForm.getValues().email;
-                      if (email) {
-                        handlePasswordReset(email);
-                      } else {
-                        toast({
-                          title: "Error",
-                          description: "Please enter your email address first",
-                          variant: "destructive",
-                        });
-                      }
-                    }}
-                  >
-                    Forgot your password?
-                  </Button>
-                </div>
+                <Button variant="link" className="px-0 mt-3 text-sm" onClick={() => void handlePasswordReset()} disabled={resetting || isLoading}>{resetting ? "Sending reset link…" : "Forgot your password?"}</Button>
               </TabsContent>
-              
               <TabsContent value="register">
                 <Form {...registerForm}>
                   <form onSubmit={registerForm.handleSubmit(handleRegister)} className="space-y-4">
-                    <FormField
-                      control={registerForm.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Email</FormLabel>
-                          <div className="relative">
-                            <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                            <FormControl>
-                              <Input placeholder="you@example.com" className="pl-10" {...field} />
-                            </FormControl>
-                          </div>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={registerForm.control}
-                      name="password"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Password</FormLabel>
-                          <div className="relative">
-                            <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                            <FormControl>
-                              <Input type="password" placeholder="••••••••" className="pl-10" {...field} />
-                            </FormControl>
-                          </div>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={registerForm.control}
-                      name="confirmPassword"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Confirm Password</FormLabel>
-                          <div className="relative">
-                            <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                            <FormControl>
-                              <Input type="password" placeholder="••••••••" className="pl-10" {...field} />
-                            </FormControl>
-                          </div>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <Button
-                      type="submit"
-                      className="w-full"
-                      disabled={isLoading}
-                    >
-                      {isLoading ? "Creating account..." : "Create Account"}
-                    </Button>
+                    <FormField control={registerForm.control} name="email" render={({ field }) => <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" autoComplete="email" placeholder="you@example.com" {...field} /></FormControl><FormMessage /></FormItem>} />
+                    <FormField control={registerForm.control} name="password" render={({ field }) => <FormItem><FormLabel>Password</FormLabel><FormControl><Input type="password" autoComplete="new-password" placeholder="At least 8 characters" {...field} /></FormControl><FormMessage /></FormItem>} />
+                    <FormField control={registerForm.control} name="confirmPassword" render={({ field }) => <FormItem><FormLabel>Confirm password</FormLabel><FormControl><Input type="password" autoComplete="new-password" placeholder="Repeat your password" {...field} /></FormControl><FormMessage /></FormItem>} />
+                    <Button type="submit" className="w-full" disabled={isLoading}>{isLoading ? "Creating account…" : "Create account"}</Button>
                   </form>
                 </Form>
+                <p className="text-xs text-muted-foreground mt-4">By registering, you agree to keep your account details accurate and your portfolio content respectful.</p>
               </TabsContent>
             </Tabs>
-            
-            <div className="mt-6">
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">
-                    Or continue with
-                  </span>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4 mt-6">
-                <Button variant="outline" type="button" onClick={() => handleOAuthLogin("github")}>
-                  <Github className="mr-2 h-4 w-4" />
-                  GitHub
-                </Button>
-                <Button variant="outline" type="button" onClick={() => handleOAuthLogin("linkedin")}>
-                  <Linkedin className="mr-2 h-4 w-4" />
-                  LinkedIn
-                </Button>
-              </div>
-            </div>
           </CardContent>
         </Card>
       </div>

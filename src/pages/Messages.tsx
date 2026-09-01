@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { format } from "date-fns";
 import { Mail, Search, RefreshCw, CheckCircle, Circle } from "lucide-react";
 import AdminLayout from "@/components/admin/Layout";
@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/api";
 
 interface Message {
   id: string;
@@ -30,64 +30,33 @@ const Messages = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
 
-  const fetchMessages = async () => {
+  const fetchMessages = useCallback(async () => {
     setIsLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from("contact_messages")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      setMessages(data || []);
-      setFilteredMessages(data || []);
-    } catch (error) {
-      console.error("Error fetching messages:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load messages",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
+    const result = await supabase.from("contact_messages").select("*").order("created_at", { ascending: false });
+    if (result.error) {
+      toast({ title: "Could not load messages", description: result.error.message, variant: "destructive" });
+    } else {
+      const next = result.data ?? [];
+      setMessages(next);
+      setFilteredMessages(next);
     }
-  };
+    setIsLoading(false);
+  }, [toast]);
 
   const markAsRead = async (id: string) => {
-    try {
-      const { error } = await supabase
-        .from("contact_messages")
-        .update({ read: true })
-        .eq("id", id);
-
-      if (error) throw error;
-
-      setMessages(
-        messages.map((msg) => (msg.id === id ? { ...msg, read: true } : msg))
-      );
-      setFilteredMessages(
-        filteredMessages.map((msg) =>
-          msg.id === id ? { ...msg, read: true } : msg
-        )
-      );
-
-      toast({
-        title: "Success",
-        description: "Message marked as read",
-      });
-    } catch (error) {
-      console.error("Error marking message as read:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update message",
-        variant: "destructive",
-      });
+    const result = await supabase.from("contact_messages").update({ read: true }).eq("id", id);
+    if (result.error) {
+      toast({ title: "Could not update message", description: result.error.message, variant: "destructive" });
+      return;
     }
+    setMessages((current) => current.map((msg) => msg.id === id ? { ...msg, read: true } : msg));
+    setSelectedMessage((current) => current?.id === id ? { ...current, read: true } : current);
+    toast({ title: "Message marked as read" });
   };
 
   useEffect(() => {
-    fetchMessages();
-  }, []);
+    void fetchMessages();
+  }, [fetchMessages]);
 
   useEffect(() => {
     // Filter messages based on search query and active tab
@@ -184,41 +153,25 @@ const Messages = () => {
                   ) : (
                     <ul className="divide-y">
                       {filteredMessages.map((message) => (
-                        <li
-                          key={message.id}
-                          className={`p-4 cursor-pointer hover:bg-muted/50 transition-colors ${
-                            selectedMessage?.id === message.id
-                              ? "bg-muted"
-                              : ""
-                          } ${!message.read ? "font-medium" : ""}`}
-                          onClick={() => setSelectedMessage(message)}
-                        >
-                          <div className="flex justify-between items-start">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center space-x-2">
-                                {message.read ? (
-                                  <CheckCircle className="h-4 w-4 text-muted-foreground" />
-                                ) : (
-                                  <Circle className="h-4 w-4 text-primary" />
-                                )}
-                                <p className="text-sm font-medium truncate">
-                                  {message.name}
-                                </p>
+                        <li key={message.id}>
+                          <button
+                            type="button"
+                            className={`w-full p-4 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset ${selectedMessage?.id === message.id ? "bg-muted" : ""} ${!message.read ? "font-medium" : ""}`}
+                            onClick={() => setSelectedMessage(message)}
+                            aria-pressed={selectedMessage?.id === message.id}
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center space-x-2">
+                                  {message.read ? <CheckCircle className="h-4 w-4 text-muted-foreground" aria-hidden="true" /> : <Circle className="h-4 w-4 text-primary" aria-hidden="true" />}
+                                  <p className="truncate text-sm font-medium">{message.name}</p>
+                                </div>
+                                <p className="mt-1 truncate text-xs text-muted-foreground">{message.email}</p>
+                                <p className="mt-1 truncate text-sm">{message.subject}</p>
+                                <p className="mt-1 text-xs text-muted-foreground">{format(new Date(message.created_at), "MMM d, yyyy 'at' h:mm a")}</p>
                               </div>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {message.email}
-                              </p>
-                              <p className="text-sm truncate mt-1">
-                                {message.subject}
-                              </p>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {format(
-                                  new Date(message.created_at),
-                                  "MMM d, yyyy 'at' h:mm a"
-                                )}
-                              </p>
                             </div>
-                          </div>
+                          </button>
                         </li>
                       ))}
                     </ul>
@@ -264,7 +217,7 @@ const Messages = () => {
                           asChild
                         >
                           <a 
-                            href={`mailto:${selectedMessage.email}?subject=Re: ${selectedMessage.subject}`}
+                            href={`mailto:${selectedMessage.email}?subject=${encodeURIComponent(`Re: ${selectedMessage.subject}`)}`}
                             target="_blank"
                             rel="noopener noreferrer"
                           >

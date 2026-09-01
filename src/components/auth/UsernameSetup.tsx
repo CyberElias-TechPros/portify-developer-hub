@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,40 +13,62 @@ interface UsernameSetupProps {
 }
 
 export default function UsernameSetup({ onComplete }: UsernameSetupProps) {
-  const { username, createUsername, updateUsername, checkUsernameAvailable } = useUsername();
+  const { username, createUsername, updateUsername, checkUsernameAvailable, error: usernameError, refetch: retryUsername } = useUsername();
   const { toast } = useToast();
   const [newUsername, setNewUsername] = useState(username || '');
-  const [isAvailable, setIsAvailable] = useState<boolean | null>(null);
+  const [isAvailable, setIsAvailable] = useState<boolean | null>(username ? true : null);
   const [checking, setChecking] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [hasEdited, setHasEdited] = useState(false);
+  const availabilityRequest = useRef(0);
+
+  useEffect(() => {
+    if (!hasEdited) {
+      setNewUsername(username || '');
+      setIsAvailable(username ? true : null);
+    }
+  }, [hasEdited, username]);
 
   const validateUsername = (value: string) => {
     const regex = /^[a-zA-Z0-9_-]{3,30}$/;
     return regex.test(value);
   };
 
-  const handleUsernameChange = async (value: string) => {
+  const handleUsernameChange = (value: string) => {
+    setHasEdited(true);
     setNewUsername(value);
     setIsAvailable(null);
+    const requestNumber = availabilityRequest.current + 1;
+    availabilityRequest.current = requestNumber;
 
     if (!value || !validateUsername(value)) {
+      setChecking(false);
       return;
     }
 
-    if (value === username) {
+    if (value.trim().toLowerCase() === username?.toLowerCase()) {
       setIsAvailable(true);
+      setChecking(false);
       return;
     }
 
     setChecking(true);
-    try {
-      const available = await checkUsernameAvailable(value);
-      setIsAvailable(available);
-    } catch (error) {
-      console.error('Error checking username:', error);
-    } finally {
-      setChecking(false);
-    }
+    void checkUsernameAvailable(value)
+      .then((available) => {
+        if (availabilityRequest.current === requestNumber) setIsAvailable(available);
+      })
+      .catch((error: unknown) => {
+        if (availabilityRequest.current !== requestNumber) return;
+        setIsAvailable(null);
+        toast({
+          title: 'Could not check username',
+          description: error instanceof Error ? error.message : 'Please try again.',
+          variant: 'destructive',
+        });
+      })
+      .finally(() => {
+        if (availabilityRequest.current === requestNumber) setChecking(false);
+      });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -84,16 +106,27 @@ export default function UsernameSetup({ onComplete }: UsernameSetupProps) {
       });
 
       onComplete?.();
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to save username.',
+        description: error instanceof Error ? error.message : 'Failed to save username.',
         variant: 'destructive'
       });
     } finally {
       setSubmitting(false);
     }
   };
+
+  if (usernameError) {
+    return (
+      <Card className="mx-auto w-full max-w-md">
+        <CardContent className="space-y-4 p-6 text-center" role="alert">
+          <p className="text-sm text-muted-foreground">Your username could not be loaded. No changes have been made.</p>
+          <Button type="button" variant="outline" onClick={() => void retryUsername()}>Try again</Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="w-full max-w-md mx-auto">

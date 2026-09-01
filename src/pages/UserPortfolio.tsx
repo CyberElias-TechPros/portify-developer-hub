@@ -1,107 +1,30 @@
+import { useEffect, useState } from "react";
+import { Link, useParams } from "react-router-dom";
+import Layout from "@/components/Layout";
+import LoadingState from "@/components/LoadingState";
+import { supabase } from "@/lib/api";
+import { Profile, adaptDbProfileToProfile } from "@/types/portfolio";
+import { getUserIdByUsername } from "@/hooks/useUsername";
+import Hero from "@/components/home/Hero";
+import ProjectsShowcase from "@/components/home/ProjectsShowcase";
+import Skills from "@/components/home/Skills";
+import Experience from "@/components/home/Experience";
+import BlogPosts from "@/components/home/BlogPosts";
+import ContactSection from "@/components/home/ContactSection";
+import { Button } from "@/components/ui/button";
+import type { CSSProperties } from "react";
 
-import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import Layout from '@/components/Layout';
-import LoadingState from '@/components/LoadingState';
-import { supabase } from '@/integrations/supabase/client';
-import { Profile, adaptDbProfileToProfile } from '@/types/portfolio';
-import { getUserIdByUsername } from '@/hooks/useUsername';
-import Hero from '@/components/home/Hero';
-import ProjectsShowcase from '@/components/home/ProjectsShowcase';
-import Skills from '@/components/home/Skills';
-import Experience from '@/components/home/Experience';
-import ContactSection from '@/components/home/ContactSection';
+type PublicTheme = { primaryColor: string; secondaryColor: string; backgroundColor: string; textColor: string; accentColor: string; fontFamily: string; headingFont: string; bodyFont: string; darkMode: boolean };
+const usernamePattern = /^[A-Za-z0-9_-]{3,30}$/;
+function hexToHsl(hex: string) { const value = hex.replace("#", ""); const red = parseInt(value.slice(0, 2), 16) / 255; const green = parseInt(value.slice(2, 4), 16) / 255; const blue = parseInt(value.slice(4, 6), 16) / 255; const max = Math.max(red, green, blue); const min = Math.min(red, green, blue); const lightness = (max + min) / 2; const delta = max - min; if (!delta) return `0 0% ${Math.round(lightness * 100)}%`; const saturation = lightness > 0.5 ? delta / (2 - max - min) : delta / (max + min); let hue = 0; if (max === red) hue = (green - blue) / delta + (green < blue ? 6 : 0); else if (max === green) hue = (blue - red) / delta + 2; else hue = (red - green) / delta + 4; return `${Math.round(hue * 60)} ${Math.round(saturation * 100)}% ${Math.round(lightness * 100)}%`; }
+function safeTheme(value: unknown): PublicTheme | null { const input = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; const colour = (field: keyof Pick<PublicTheme, "primaryColor" | "secondaryColor" | "backgroundColor" | "textColor" | "accentColor">, fallback: string) => typeof input[field] === "string" && /^#[0-9a-f]{6}$/i.test(input[field] as string) ? input[field] as string : fallback; if (!Object.keys(input).length) return null; const fonts = new Set(["Inter", "System UI", "Georgia", "Roboto"]); const font = (field: string) => typeof input[field] === "string" && fonts.has(input[field] as string) ? input[field] as string : "Inter"; return { primaryColor: colour("primaryColor", "#7c3aed"), secondaryColor: colour("secondaryColor", "#e2e8f0"), backgroundColor: colour("backgroundColor", "#ffffff"), textColor: colour("textColor", "#111827"), accentColor: colour("accentColor", "#f59e0b"), fontFamily: font("fontFamily"), headingFont: font("headingFont"), bodyFont: font("bodyFont"), darkMode: input.darkMode === true }; }
 
 export default function UserPortfolio() {
-  const { username } = useParams<{ username: string }>();
-  const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      try {
-        setLoading(true);
-        
-        if (!username) {
-          setError('Username is required');
-          return;
-        }
-
-        // First try to resolve username to user ID
-        const resolvedUserId = await getUserIdByUsername(username);
-        
-        if (!resolvedUserId) {
-          // If username doesn't exist, try to fetch by ID directly (backward compatibility)
-          const { data, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', username)
-            .single();
-
-          if (error || !data) {
-            setError('User not found');
-            return;
-          }
-
-          setUserId(data.id);
-          setProfile(adaptDbProfileToProfile(data));
-        } else {
-          // Fetch profile by resolved user ID
-          const { data, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', resolvedUserId)
-            .single();
-
-          if (error || !data) {
-            setError('User profile not found');
-            return;
-          }
-
-          setUserId(resolvedUserId);
-          setProfile(adaptDbProfileToProfile(data));
-        }
-      } catch (err: any) {
-        console.error('Error fetching user profile:', err);
-        setError(err.message || 'Failed to load user profile');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (username) {
-      fetchUserProfile();
-    }
-  }, [username]);
-
-  if (loading) {
-    return <LoadingState />;
-  }
-
-  if (error || !profile || !userId) {
-    return (
-      <Layout>
-        <div className="container py-20 text-center">
-          <h1 className="text-3xl font-bold">User Not Found</h1>
-          <p className="mt-4 text-muted-foreground">
-            The portfolio you're looking for doesn't exist or has been removed.
-          </p>
-        </div>
-      </Layout>
-    );
-  }
-
-  return (
-    <Layout>
-      <div className="bg-background">
-        <Hero userProfile={profile} />
-        <ProjectsShowcase userId={userId} />
-        <Skills userId={userId} />
-        <Experience userId={userId} />
-        <ContactSection userProfile={profile} />
-      </div>
-    </Layout>
-  );
+  const { username } = useParams<{ username: string }>(); const [loading, setLoading] = useState(true); const [profile, setProfile] = useState<Profile | null>(null); const [userId, setUserId] = useState<string | null>(null); const [theme, setTheme] = useState<PublicTheme | null>(null); const [status, setStatus] = useState<"not-found" | "error" | null>(null); const [retry, setRetry] = useState(0);
+  useEffect(() => { let mounted = true; const load = async () => { setLoading(true); setStatus(null); setProfile(null); setUserId(null); setTheme(null); if (!username || !usernamePattern.test(username)) { if (mounted) { setStatus("not-found"); setLoading(false); } return; } try { const resolvedId = await getUserIdByUsername(username); if (!resolvedId) { if (mounted) { setStatus("not-found"); setLoading(false); } return; } const profileResult = await supabase.from("profiles").select("*").eq("id", resolvedId).single(); if (!mounted) return; if (profileResult.error || !profileResult.data) { setStatus(profileResult.error?.code === "PGRST116" ? "not-found" : "error"); setLoading(false); return; } setUserId(profileResult.data.id); setProfile(adaptDbProfileToProfile(profileResult.data)); const themeResult = await supabase.from("portfolio_themes").select("settings").eq("user_id", profileResult.data.id).single(); if (mounted && themeResult.data) setTheme(safeTheme(themeResult.data.settings)); if (mounted) setLoading(false); } catch { if (mounted) { setStatus("error"); setLoading(false); } } }; void load(); return () => { mounted = false; }; }, [retry, username]);
+  if (loading) return <LoadingState />;
+  if (status === "error") return <Layout><div className="container py-20 text-center"><h1 className="text-3xl font-bold">Portfolio could not be loaded</h1><p className="mt-4 text-muted-foreground">The portfolio service is temporarily unavailable.</p><Button className="mt-6" onClick={() => setRetry((value) => value + 1)}>Try again</Button></div></Layout>;
+  if (status === "not-found" || !profile || !userId) return <Layout><div className="container py-20 text-center"><h1 className="text-3xl font-bold">Portfolio not found</h1><p className="mt-4 text-muted-foreground">This username does not point to a public portfolio.</p><Button className="mt-6" asChild><Link to="/discover">Discover portfolios</Link></Button></div></Layout>;
+  const themeStyle: CSSProperties & Record<`--${string}`, string> = theme ? { "--background": hexToHsl(theme.backgroundColor), "--foreground": hexToHsl(theme.textColor), "--primary": hexToHsl(theme.primaryColor), "--primary-foreground": "0 0% 100%", "--secondary": hexToHsl(theme.secondaryColor), "--secondary-foreground": hexToHsl(theme.textColor), "--accent": hexToHsl(theme.accentColor), "--accent-foreground": hexToHsl(theme.textColor), "--portfolio-heading-font": theme.headingFont, "--portfolio-body-font": theme.bodyFont, fontFamily: theme.fontFamily } : {};
+  return <Layout><div className={`portfolio-theme bg-background ${theme?.darkMode ? "dark" : ""}`} style={themeStyle}><Hero userProfile={profile} /><ProjectsShowcase userId={userId} /><Skills userId={userId} /><Experience userId={userId} /><BlogPosts userId={userId} /><ContactSection userProfile={profile} /></div></Layout>;
 }

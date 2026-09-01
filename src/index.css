@@ -77,6 +77,19 @@
   }
 }
 
+.portfolio-theme {
+  font-family: var(--portfolio-body-font, inherit);
+}
+
+.portfolio-theme h1,
+.portfolio-theme h2,
+.portfolio-theme h3,
+.portfolio-theme h4,
+.portfolio-theme h5,
+.portfolio-theme h6 {
+  font-family: var(--portfolio-heading-font, inherit);
+}
+
 /* Custom animations */
 @keyframes fadeIn {
   from { opacity: 0; }

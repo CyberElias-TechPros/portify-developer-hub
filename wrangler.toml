@@ -1,0 +1,36 @@
+name = "portify-api"
+main = "workers/api/src/index.ts"
+compatibility_date = "2026-09-01"
+workers_dev = true
+
+[triggers]
+crons = ["*/15 * * * *"]
+
+[vars]
+ENVIRONMENT = "development"
+ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:4173,http://localhost:8080"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "portify-db"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "workers/api/migrations"
+
+# Deploy the production environment explicitly after replacing the placeholder
+# database ID and domain values:
+# npx wrangler deploy --env production
+[env.production]
+name = "portify-api-production"
+vars = { ENVIRONMENT = "production", ALLOWED_ORIGINS = "https://your-vercel-domain.example", APP_URL = "https://your-vercel-domain.example", MAIL_FROM = "Portify <noreply@example.com>" }
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "portify-db"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "workers/api/migrations"
+
+# Set these with `wrangler secret put --env production`, never in this file:
+# ADMIN_BOOTSTRAP_TOKEN
+# RESEND_API_KEY
+# GITHUB_TOKEN
+# SESSION_COOKIE_DOMAIN

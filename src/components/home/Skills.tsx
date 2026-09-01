@@ -9,7 +9,7 @@ interface SkillsProps {
 }
 
 export default function Skills({ userId }: SkillsProps) {
-  const { skills, loading } = useUserSkills(userId || null);
+  const { skills, loading, error } = useUserSkills(userId || null);
 
   if (loading) {
     return (
@@ -21,6 +21,17 @@ export default function Skills({ userId }: SkillsProps) {
               Loading skills...
             </p>
           </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (error) {
+    return (
+      <section id="skills" className="w-full py-16 px-6 md:px-12 lg:px-24">
+        <div className="max-w-7xl mx-auto text-center">
+          <h2 className="text-3xl md:text-4xl font-bold mb-4">Skills & Expertise</h2>
+          <p className="text-lg text-muted-foreground">Skills are temporarily unavailable.</p>
         </div>
       </section>
     );

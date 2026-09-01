@@ -1,490 +1,56 @@
-import { useState, useEffect } from 'react';
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
-  CardTitle,
-} from "@/components/ui/card";
-import { 
-  Tabs, 
-  TabsContent, 
-  TabsList, 
-  TabsTrigger 
-} from "@/components/ui/tabs";
+import { useEffect, useState } from "react";
+import { z } from "zod";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
-import { ContactInfo, SocialLinks, SiteInfo } from "@/types/portfolio";
-import { Json } from "@/integrations/supabase/types";
+import { supabase } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
+
+type ContactInfo = { email: string; phone: string; address: string; github: string; twitter: string; linkedin: string };
+type SocialLinks = { github: string; twitter: string; linkedin: string; instagram: string; youtube: string; facebook: string };
+type SiteInfo = { title: string; description: string; keywords: string; author: string; logoUrl: string; faviconUrl: string };
+const contactDefault: ContactInfo = { email: "", phone: "", address: "", github: "", twitter: "", linkedin: "" };
+const socialDefault: SocialLinks = { github: "", twitter: "", linkedin: "", instagram: "", youtube: "", facebook: "" };
+const siteDefault: SiteInfo = { title: "", description: "", keywords: "", author: "", logoUrl: "", faviconUrl: "" };
+const optionalHttpUrl = z.string().trim().max(500).refine((value) => !value || /^https?:\/\//i.test(value), "Use an http(s) URL");
+const optionalAssetUrl = z.string().trim().max(500).refine((value) => !value || /^https?:\/\//i.test(value) || (value.startsWith("/") && !value.startsWith("//")), "Use an http(s) URL or a site-relative path");
+const settingsSchema = z.object({ email: z.string().trim().refine((value) => !value || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value), "Enter a valid email"), phone: z.string().trim().max(40), address: z.string().trim().max(160), github: optionalHttpUrl, twitter: optionalHttpUrl, linkedin: optionalHttpUrl, instagram: optionalHttpUrl, youtube: optionalHttpUrl, facebook: optionalHttpUrl, title: z.string().trim().max(160), description: z.string().trim().max(320), keywords: z.string().trim().max(320), author: z.string().trim().max(120), logoUrl: optionalAssetUrl, faviconUrl: optionalAssetUrl });
+function record(value: unknown) { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
+function merge<T extends object>(defaults: T, value: unknown): T { return { ...defaults, ...record(value) }; }
 
 export default function SiteSettings() {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState("contact");
+  const [contact, setContact] = useState<ContactInfo>(contactDefault);
+  const [social, setSocial] = useState<SocialLinks>(socialDefault);
+  const [site, setSite] = useState<SiteInfo>(siteDefault);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  
-  const [contactInfo, setContactInfo] = useState<ContactInfo>({
-    email: "",
-    phone: "",
-    address: "",
-    github: "",
-    twitter: "",
-    linkedin: ""
-  });
-  
-  const [socialLinks, setSocialLinks] = useState<SocialLinks>({
-    github: "",
-    twitter: "",
-    linkedin: "",
-    instagram: "",
-    youtube: "",
-    facebook: ""
-  });
-  
-  const [siteInfo, setSiteInfo] = useState<SiteInfo>({
-    title: "",
-    description: "",
-    keywords: "",
-    author: "",
-    logoUrl: "",
-    faviconUrl: ""
-  });
-
   useEffect(() => {
-    async function fetchSettings() {
-      try {
-        setLoading(true);
-        
-        // Fetch contact info
-        const { data: contactData, error: contactError } = await supabase
-          .from('site_settings')
-          .select('*')
-          .eq('key', 'contact_info')
-          .single();
-        
-        if (contactError && contactError.code !== 'PGRST116') { // PGRST116 means no rows returned
-          console.error("Error fetching contact info:", contactError);
-        } else if (contactData) {
-          const parsedData = typeof contactData.value === 'string' ? 
-            JSON.parse(contactData.value as string) : contactData.value;
-          setContactInfo(parsedData as ContactInfo);
-        }
-        
-        // Fetch social links
-        const { data: socialData, error: socialError } = await supabase
-          .from('site_settings')
-          .select('*')
-          .eq('key', 'social_links')
-          .single();
-        
-        if (socialError && socialError.code !== 'PGRST116') {
-          console.error("Error fetching social links:", socialError);
-        } else if (socialData) {
-          const parsedData = typeof socialData.value === 'string' ? 
-            JSON.parse(socialData.value as string) : socialData.value;
-          setSocialLinks(parsedData as SocialLinks);
-        }
-        
-        // Fetch site info
-        const { data: siteData, error: siteError } = await supabase
-          .from('site_settings')
-          .select('*')
-          .eq('key', 'site_info')
-          .single();
-        
-        if (siteError && siteError.code !== 'PGRST116') {
-          console.error("Error fetching site info:", siteError);
-        } else if (siteData) {
-          const parsedData = typeof siteData.value === 'string' ? 
-            JSON.parse(siteData.value as string) : siteData.value;
-          setSiteInfo(parsedData as SiteInfo);
-        }
-        
-      } catch (error) {
-        console.error("Error fetching settings:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load site settings",
-          variant: "destructive"
-        });
-      } finally {
-        setLoading(false);
-      }
-    }
-    
-    fetchSettings();
+    let mounted = true;
+    Promise.all(["contact_info", "social_links", "site_info"].map((key) => supabase.from("site_settings").select("value").eq("key", key).single())).then(([contactResult, socialResult, siteResult]) => {
+      if (!mounted) return;
+      if (contactResult.data) setContact(merge(contactDefault, contactResult.data.value));
+      if (socialResult.data) setSocial(merge(socialDefault, socialResult.data.value));
+      if (siteResult.data) setSite(merge(siteDefault, siteResult.data.value));
+      const failed = [contactResult, socialResult, siteResult].find((result) => result.error && result.error.code !== "PGRST116");
+      if (failed?.error) toast({ title: "Could not load site settings", description: failed.error.message, variant: "destructive" });
+      setLoading(false);
+    }).catch((error: unknown) => { if (mounted) { setLoading(false); toast({ title: "Could not load site settings", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" }); } });
+    return () => { mounted = false; };
   }, [toast]);
-  
-  const handleContactChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setContactInfo(prev => ({ ...prev, [name]: value }));
+  const update = <T extends object>(setter: React.Dispatch<React.SetStateAction<T>>, field: keyof T, value: string) => setter((current) => ({ ...current, [field]: value }));
+  const save = async (key: "contact_info" | "social_links" | "site_info", value: ContactInfo | SocialLinks | SiteInfo) => {
+    const input = { ...contact, ...social, ...site };
+    const parsed = settingsSchema.safeParse(input);
+    if (!parsed.success) { toast({ title: "Check the settings", description: parsed.error.issues[0]?.message, variant: "destructive" }); return; }
+    setSaving(true);
+    const result = await supabase.from("site_settings").upsert({ key, value }, { onConflict: "key" });
+    if (result.error) toast({ title: "Settings not saved", description: result.error.message, variant: "destructive" }); else toast({ title: "Settings saved" });
+    setSaving(false);
   };
-  
-  const handleSocialChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setSocialLinks(prev => ({ ...prev, [name]: value }));
-  };
-  
-  const handleSiteInfoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setSiteInfo(prev => ({ ...prev, [name]: value }));
-  };
-  
-  const saveContactInfo = async () => {
-    try {
-      setSaving(true);
-      
-      const { error } = await supabase
-        .from('site_settings')
-        .upsert({
-          key: 'contact_info',
-          value: contactInfo as unknown as Json
-        }, {
-          onConflict: 'key'
-        });
-      
-      if (error) throw error;
-      
-      toast({
-        title: "Contact Info Saved",
-        description: "Your contact information has been updated successfully."
-      });
-    } catch (error) {
-      console.error("Error saving contact info:", error);
-      toast({
-        title: "Error",
-        description: "Failed to save contact information",
-        variant: "destructive"
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-  
-  const saveSocialLinks = async () => {
-    try {
-      setSaving(true);
-      
-      const { error } = await supabase
-        .from('site_settings')
-        .upsert({
-          key: 'social_links',
-          value: socialLinks as unknown as Json
-        }, {
-          onConflict: 'key'
-        });
-      
-      if (error) throw error;
-      
-      toast({
-        title: "Social Links Saved",
-        description: "Your social media links have been updated successfully."
-      });
-    } catch (error) {
-      console.error("Error saving social links:", error);
-      toast({
-        title: "Error",
-        description: "Failed to save social media links",
-        variant: "destructive"
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-  
-  const saveSiteInfo = async () => {
-    try {
-      setSaving(true);
-      
-      const { error } = await supabase
-        .from('site_settings')
-        .upsert({
-          key: 'site_info',
-          value: siteInfo as unknown as Json
-        }, {
-          onConflict: 'key'
-        });
-      
-      if (error) throw error;
-      
-      toast({
-        title: "Site Info Saved",
-        description: "Your site information has been updated successfully."
-      });
-    } catch (error) {
-      console.error("Error saving site info:", error);
-      toast({
-        title: "Error",
-        description: "Failed to save site information",
-        variant: "destructive"
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-  
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <span className="ml-2 text-muted-foreground">Loading settings...</span>
-      </div>
-    );
-  }
-  
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Site Settings</CardTitle>
-        <CardDescription>Manage global settings for your portfolio site</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="contact">Contact Info</TabsTrigger>
-            <TabsTrigger value="social">Social Media</TabsTrigger>
-            <TabsTrigger value="site">Site Information</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="contact" className="space-y-6 pt-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
-                <Input 
-                  id="email" 
-                  name="email" 
-                  value={contactInfo.email || ''} 
-                  onChange={handleContactChange}
-                  placeholder="contact@example.com"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number</Label>
-                <Input 
-                  id="phone" 
-                  name="phone" 
-                  value={contactInfo.phone || ''} 
-                  onChange={handleContactChange}
-                  placeholder="+1 (555) 123-4567"
-                />
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="address">Address</Label>
-              <Input 
-                id="address" 
-                name="address" 
-                value={contactInfo.address || ''} 
-                onChange={handleContactChange}
-                placeholder="San Francisco, CA"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="github">GitHub Profile</Label>
-              <Input 
-                id="github" 
-                name="github" 
-                value={contactInfo.github || ''} 
-                onChange={handleContactChange}
-                placeholder="https://github.com/username"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="twitter">Twitter Profile</Label>
-              <Input 
-                id="twitter" 
-                name="twitter" 
-                value={contactInfo.twitter || ''} 
-                onChange={handleContactChange}
-                placeholder="https://twitter.com/username"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="linkedin">LinkedIn Profile</Label>
-              <Input 
-                id="linkedin" 
-                name="linkedin" 
-                value={contactInfo.linkedin || ''} 
-                onChange={handleContactChange}
-                placeholder="https://linkedin.com/in/username"
-              />
-            </div>
-            
-            <div className="flex justify-end">
-              <Button onClick={saveContactInfo} disabled={saving}>
-                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Save Contact Info
-              </Button>
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="social" className="space-y-6 pt-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="github">GitHub</Label>
-                <Input 
-                  id="socialGithub" 
-                  name="github" 
-                  value={socialLinks.github || ''} 
-                  onChange={handleSocialChange}
-                  placeholder="https://github.com/username"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="twitter">Twitter</Label>
-                <Input 
-                  id="socialTwitter" 
-                  name="twitter" 
-                  value={socialLinks.twitter || ''} 
-                  onChange={handleSocialChange}
-                  placeholder="https://twitter.com/username"
-                />
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="linkedin">LinkedIn</Label>
-                <Input 
-                  id="socialLinkedin" 
-                  name="linkedin" 
-                  value={socialLinks.linkedin || ''} 
-                  onChange={handleSocialChange}
-                  placeholder="https://linkedin.com/in/username"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="instagram">Instagram</Label>
-                <Input 
-                  id="instagram" 
-                  name="instagram" 
-                  value={socialLinks.instagram || ''} 
-                  onChange={handleSocialChange}
-                  placeholder="https://instagram.com/username"
-                />
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="youtube">YouTube</Label>
-                <Input 
-                  id="youtube" 
-                  name="youtube" 
-                  value={socialLinks.youtube || ''} 
-                  onChange={handleSocialChange}
-                  placeholder="https://youtube.com/@username"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="facebook">Facebook</Label>
-                <Input 
-                  id="facebook" 
-                  name="facebook" 
-                  value={socialLinks.facebook || ''} 
-                  onChange={handleSocialChange}
-                  placeholder="https://facebook.com/username"
-                />
-              </div>
-            </div>
-            
-            <div className="flex justify-end">
-              <Button onClick={saveSocialLinks} disabled={saving}>
-                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Save Social Links
-              </Button>
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="site" className="space-y-6 pt-4">
-            <div className="space-y-2">
-              <Label htmlFor="title">Site Title</Label>
-              <Input 
-                id="title" 
-                name="title" 
-                value={siteInfo.title || ''} 
-                onChange={handleSiteInfoChange}
-                placeholder="My Portfolio"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="description">Meta Description</Label>
-              <Input 
-                id="description" 
-                name="description" 
-                value={siteInfo.description || ''} 
-                onChange={handleSiteInfoChange}
-                placeholder="A showcase of my work and skills as a developer"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="keywords">Meta Keywords</Label>
-              <Input 
-                id="keywords" 
-                name="keywords" 
-                value={siteInfo.keywords || ''} 
-                onChange={handleSiteInfoChange}
-                placeholder="portfolio, developer, web development, react"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="author">Author</Label>
-              <Input 
-                id="author" 
-                name="author" 
-                value={siteInfo.author || ''} 
-                onChange={handleSiteInfoChange}
-                placeholder="Your Name"
-              />
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="logoUrl">Logo URL</Label>
-                <Input 
-                  id="logoUrl" 
-                  name="logoUrl" 
-                  value={siteInfo.logoUrl || ''} 
-                  onChange={handleSiteInfoChange}
-                  placeholder="/logo.svg"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="faviconUrl">Favicon URL</Label>
-                <Input 
-                  id="faviconUrl" 
-                  name="faviconUrl" 
-                  value={siteInfo.faviconUrl || ''} 
-                  onChange={handleSiteInfoChange}
-                  placeholder="/favicon.ico"
-                />
-              </div>
-            </div>
-            
-            <div className="flex justify-end">
-              <Button onClick={saveSiteInfo} disabled={saving}>
-                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Save Site Info
-              </Button>
-            </div>
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-    </Card>
-  );
+  if (loading) return <div className="flex h-64 items-center justify-center" role="status"><Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" /><span className="sr-only">Loading settings</span></div>;
+  return <Card><CardHeader><CardTitle>Site settings</CardTitle><CardDescription>Manage the contact details and metadata shown on public portfolio pages.</CardDescription></CardHeader><CardContent><Tabs defaultValue="contact"><TabsList className="grid w-full grid-cols-3"><TabsTrigger value="contact">Contact</TabsTrigger><TabsTrigger value="social">Social</TabsTrigger><TabsTrigger value="site">Site information</TabsTrigger></TabsList><TabsContent value="contact" className="space-y-4 pt-5"><div className="grid gap-4 md:grid-cols-2">{([ ["email", "Email", "email"], ["phone", "Phone", "text"], ["address", "Address", "text"], ["github", "GitHub URL", "url"], ["twitter", "Social URL", "url"], ["linkedin", "LinkedIn URL", "url"] ] as [keyof ContactInfo, string, string][]).map(([field, label, type]) => <div key={field} className="space-y-2"><Label htmlFor={`contact-${field}`}>{label}</Label><Input id={`contact-${field}`} type={type} value={contact[field]} onChange={(event) => update(setContact, field, event.target.value)} /></div>)}</div><Button onClick={() => void save("contact_info", contact)} disabled={saving}>{saving ? "Saving…" : "Save contact"}</Button></TabsContent><TabsContent value="social" className="space-y-4 pt-5"><div className="grid gap-4 md:grid-cols-2">{([ ["github", "GitHub"], ["twitter", "Twitter / X"], ["linkedin", "LinkedIn"], ["instagram", "Instagram"], ["youtube", "YouTube"], ["facebook", "Facebook"] ] as [keyof SocialLinks, string][]).map(([field, label]) => <div key={field} className="space-y-2"><Label htmlFor={`social-${field}`}>{label}</Label><Input id={`social-${field}`} type="url" value={social[field]} onChange={(event) => update(setSocial, field, event.target.value)} /></div>)}</div><Button onClick={() => void save("social_links", social)} disabled={saving}>{saving ? "Saving…" : "Save social links"}</Button></TabsContent><TabsContent value="site" className="space-y-4 pt-5"><div className="space-y-2"><Label htmlFor="site-title">Site title</Label><Input id="site-title" value={site.title} onChange={(event) => update(setSite, "title", event.target.value)} /></div><div className="space-y-2"><Label htmlFor="site-description">Meta description</Label><Input id="site-description" value={site.description} onChange={(event) => update(setSite, "description", event.target.value)} /></div><div className="space-y-2"><Label htmlFor="site-keywords">Keywords</Label><Input id="site-keywords" value={site.keywords} onChange={(event) => update(setSite, "keywords", event.target.value)} /></div><div className="space-y-2"><Label htmlFor="site-author">Author</Label><Input id="site-author" value={site.author} onChange={(event) => update(setSite, "author", event.target.value)} /></div><div className="grid gap-4 md:grid-cols-2"><div className="space-y-2"><Label htmlFor="site-logo">Logo URL</Label><Input id="site-logo" value={site.logoUrl} onChange={(event) => update(setSite, "logoUrl", event.target.value)} /></div><div className="space-y-2"><Label htmlFor="site-favicon">Favicon URL</Label><Input id="site-favicon" value={site.faviconUrl} onChange={(event) => update(setSite, "faviconUrl", event.target.value)} /></div></div><Button onClick={() => void save("site_info", site)} disabled={saving}>{saving ? "Saving…" : "Save site information"}</Button></TabsContent></Tabs></CardContent></Card>;
 }
