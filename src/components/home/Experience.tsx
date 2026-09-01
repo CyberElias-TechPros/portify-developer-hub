@@ -9,7 +9,7 @@ interface ExperienceProps {
 }
 
 export default function Experience({ userId }: ExperienceProps) {
-  const { experiences, loading } = useUserExperiences(userId || null);
+  const { experiences, loading, error } = useUserExperiences(userId || null);
 
   if (loading) {
     return (
@@ -21,6 +21,17 @@ export default function Experience({ userId }: ExperienceProps) {
               Loading experience...
             </p>
           </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (error) {
+    return (
+      <section className="w-full py-16 px-6 md:px-12 lg:px-24 bg-muted/50">
+        <div className="max-w-7xl mx-auto text-center">
+          <h2 className="text-3xl md:text-4xl font-bold mb-4">Professional Experience</h2>
+          <p className="text-lg text-muted-foreground">Experience is temporarily unavailable.</p>
         </div>
       </section>
     );

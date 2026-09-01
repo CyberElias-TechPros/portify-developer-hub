@@ -14,12 +14,15 @@ import { Menu, X, User, Settings, LogOut, Search, Users } from "lucide-react";
 import { ThemeToggleButton } from "./ThemeToggleButton";
 import { useAuth } from "@/hooks/useAuth";
 import { useUsername } from "@/hooks/useUsername";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
   const { user, signOut } = useAuth();
   const { username } = useUsername();
+  const { toast } = useToast();
+  const avatarUrl = typeof user?.user_metadata?.avatar_url === "string" ? user.user_metadata.avatar_url : undefined;
 
   const navigation = [
     { name: "Home", href: "/" },
@@ -32,7 +35,11 @@ export default function Navbar() {
   ];
 
   const handleSignOut = async () => {
-    await signOut();
+    const result = await signOut();
+    if (result.error) {
+      toast({ title: "Could not sign out", description: result.error.message, variant: "destructive" });
+      return;
+    }
     window.location.href = '/';
   };
 
@@ -67,9 +74,9 @@ export default function Navbar() {
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                  <Button variant="ghost" className="relative h-8 w-8 rounded-full" aria-label="Open account menu">
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src={user.user_metadata?.avatar_url} />
+                      <AvatarImage src={avatarUrl} />
                       <AvatarFallback>
                         {user.email?.charAt(0).toUpperCase()}
                       </AvatarFallback>
@@ -106,12 +113,12 @@ export default function Navbar() {
                       Discover
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
+                  {user.role === "admin" && <DropdownMenuItem asChild>
                     <Link to="/admin">
                       <Settings className="mr-2 h-4 w-4" />
                       Dashboard
                     </Link>
-                  </DropdownMenuItem>
+                  </DropdownMenuItem>}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleSignOut}>
                     <LogOut className="mr-2 h-4 w-4" />
@@ -133,6 +140,8 @@ export default function Navbar() {
               variant="ghost"
               size="sm"
               onClick={() => setIsOpen(!isOpen)}
+              aria-label={isOpen ? "Close navigation menu" : "Open navigation menu"}
+              aria-expanded={isOpen}
             >
               {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
@@ -164,7 +173,7 @@ export default function Navbar() {
                 <div className="border-t pt-2 mt-2">
                   <div className="flex items-center px-3 py-2">
                     <Avatar className="h-8 w-8 mr-3">
-                      <AvatarImage src={user.user_metadata?.avatar_url} />
+                      <AvatarImage src={avatarUrl} />
                       <AvatarFallback>
                         {user.email?.charAt(0).toUpperCase()}
                       </AvatarFallback>
@@ -192,13 +201,13 @@ export default function Navbar() {
                       View Portfolio
                     </Link>
                   )}
-                  <Link
+                  {user.role === "admin" && <Link
                     to="/admin"
                     className="block px-3 py-2 text-base font-medium text-muted-foreground hover:text-primary"
                     onClick={() => setIsOpen(false)}
                   >
                     Dashboard
-                  </Link>
+                  </Link>}
                   <button
                     onClick={() => {
                       handleSignOut();

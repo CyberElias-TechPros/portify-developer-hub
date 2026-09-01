@@ -1,163 +1,73 @@
+import { useCallback, useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Heart, ThumbsUp, Lightbulb } from "lucide-react";
+import { supabase } from "@/lib/api";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { Reaction } from '@/types/portfolio';
-import { Heart, Lightbulb, Laugh, Trophy, ThumbsUp } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-
-interface ReactionsProps {
-  contentType: 'project' | 'blog_post' | 'comment';
-  contentId: string;
-}
-
-const reactionIcons = {
-  like: ThumbsUp,
-  love: Heart,
-  celebrate: Trophy,
-  insightful: Lightbulb,
-  funny: Laugh
-};
-
-const reactionLabels = {
-  like: 'Like',
-  love: 'Love',
-  celebrate: 'Celebrate',
-  insightful: 'Insightful',
-  funny: 'Funny'
-};
+interface ReactionsProps { contentType: "project" | "blog_post"; contentId: string; }
+type ReactionKind = "like" | "love" | "insightful";
 
 export default function Reactions({ contentType, contentId }: ReactionsProps) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [reactions, setReactions] = useState<Record<string, Reaction[]>>({});
-  const [userReactions, setUserReactions] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(false);
+  const [counts, setCounts] = useState<Record<ReactionKind, number>>({ like: 0, love: 0, insightful: 0 });
+  const [selected, setSelected] = useState<ReactionKind | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchReactions();
-  }, [contentType, contentId]);
-
-  const fetchReactions = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('reactions')
-        .select('*')
-        .eq('content_type', contentType)
-        .eq('content_id', contentId);
-
-      if (error) throw error;
-
-      // Group reactions by type
-      const groupedReactions = data.reduce((acc, reaction) => {
-        const typedReaction: Reaction = {
-          ...reaction,
-          content_type: reaction.content_type as 'project' | 'blog_post' | 'comment',
-          reaction_type: reaction.reaction_type as 'like' | 'love' | 'celebrate' | 'insightful' | 'funny'
-        };
-        
-        if (!acc[reaction.reaction_type]) {
-          acc[reaction.reaction_type] = [];
-        }
-        acc[reaction.reaction_type].push(typedReaction);
-        return acc;
-      }, {} as Record<string, Reaction[]>);
-
-      setReactions(groupedReactions);
-
-      // Track user's reactions
-      if (user) {
-        const userReactionTypes = new Set(
-          data
-            .filter(r => r.user_id === user.id)
-            .map(r => r.reaction_type)
-        );
-        setUserReactions(userReactionTypes);
-      }
-    } catch (error: any) {
-      console.error('Error fetching reactions:', error);
-    }
-  };
-
-  const toggleReaction = async (reactionType: string) => {
-    if (!user) {
-      toast({
-        title: 'Authentication required',
-        description: 'Please sign in to react.',
-        variant: 'destructive'
-      });
+  const load = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    const result = await supabase.from("reactions").select("*").eq("content_type", contentType).eq("content_id", contentId);
+    if (result.error) {
+      setLoadError(result.error.message);
+      setLoading(false);
       return;
     }
+    const next: Record<ReactionKind, number> = { like: 0, love: 0, insightful: 0 };
+    (result.data ?? []).forEach((reaction) => { if (reaction.reaction_type in next) next[reaction.reaction_type as ReactionKind] += 1; });
+    setCounts(next);
+    const ownReaction = (result.data ?? []).find((reaction) => reaction.user_id === user?.id)?.reaction_type;
+    setSelected(ownReaction === "like" || ownReaction === "love" || ownReaction === "insightful" ? ownReaction : null);
+    setLoading(false);
+  }, [contentId, contentType, user]);
 
+  useEffect(() => { void load(); }, [load]);
+
+  const toggle = async (kind: ReactionKind) => {
+    if (!user) { toast({ title: "Sign in required", description: "Please sign in to react to this post.", variant: "destructive" }); return; }
+    if (loading) return;
     setLoading(true);
+    const current = selected;
     try {
-      if (userReactions.has(reactionType)) {
-        // Remove reaction
-        const { error } = await supabase
-          .from('reactions')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('content_type', contentType)
-          .eq('content_id', contentId)
-          .eq('reaction_type', reactionType);
-
-        if (error) throw error;
-
-        setUserReactions(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(reactionType);
-          return newSet;
-        });
+      if (current === kind) {
+        const result = await supabase.from("reactions").delete().eq("content_type", contentType).eq("content_id", contentId).eq("user_id", user.id).eq("reaction_type", kind);
+        if (result.error) {
+          toast({ title: "Could not remove reaction", description: result.error.message, variant: "destructive" });
+          return;
+        }
       } else {
-        // Add reaction
-        const { error } = await supabase
-          .from('reactions')
-          .insert({
-            user_id: user.id,
-            content_type: contentType,
-            content_id: contentId,
-            reaction_type: reactionType
-          });
-
-        if (error) throw error;
-
-        setUserReactions(prev => new Set([...prev, reactionType]));
+        if (current) {
+          const remove = await supabase.from("reactions").delete().eq("content_type", contentType).eq("content_id", contentId).eq("user_id", user.id);
+          if (remove.error) {
+            toast({ title: "Could not update reaction", description: remove.error.message, variant: "destructive" });
+            return;
+          }
+        }
+        const result = await supabase.from("reactions").insert({ user_id: user.id, content_type: contentType, content_id: contentId, reaction_type: kind });
+        if (result.error) {
+          toast({ title: "Could not save reaction", description: result.error.message, variant: "destructive" });
+          return;
+        }
       }
-
-      fetchReactions();
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: 'Failed to update reaction.',
-        variant: 'destructive'
-      });
+      await load();
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <div className="flex items-center space-x-2">
-      {Object.entries(reactionIcons).map(([type, Icon]) => {
-        const count = reactions[type]?.length || 0;
-        const isActive = userReactions.has(type);
-
-        return (
-          <Button
-            key={type}
-            variant={isActive ? "default" : "outline"}
-            size="sm"
-            onClick={() => toggleReaction(type)}
-            disabled={loading}
-            className="h-8 px-3"
-          >
-            <Icon className={`h-4 w-4 ${count > 0 ? 'mr-1' : ''}`} />
-            {count > 0 && <span className="text-xs">{count}</span>}
-            <span className="sr-only">{reactionLabels[type as keyof typeof reactionLabels]}</span>
-          </Button>
-        );
-      })}
-    </div>
-  );
+  const reactions: { kind: ReactionKind; label: string; icon: typeof Heart }[] = [{ kind: "like", label: "Like", icon: ThumbsUp }, { kind: "love", label: "Love", icon: Heart }, { kind: "insightful", label: "Insightful", icon: Lightbulb }];
+  if (loadError) return <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground" role="alert"><span>Reactions unavailable.</span><Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={() => void load()}>Try again</Button></div>;
+  return <div className="flex flex-wrap items-center gap-2" aria-label="Reactions">{reactions.map(({ kind, label, icon: Icon }) => <Button key={kind} type="button" variant={selected === kind ? "default" : "outline"} size="sm" disabled={loading} onClick={() => void toggle(kind)} aria-pressed={selected === kind}><Icon className="mr-1.5 h-4 w-4" aria-hidden="true" />{label} <span className="ml-1 tabular-nums">{counts[kind]}</span></Button>)}</div>;
 }

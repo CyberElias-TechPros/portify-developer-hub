@@ -225,11 +225,14 @@ export type Database = {
         Row: {
           avatar_url: string | null
           bio: string | null
+          created_at: string | null
+          email: string | null
           full_name: string | null
           github: string | null
           id: string
           linkedin: string | null
           location: string | null
+          phone: string | null
           title: string | null
           twitter: string | null
           updated_at: string | null
@@ -238,11 +241,14 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           bio?: string | null
+          created_at?: string | null
+          email?: string | null
           full_name?: string | null
           github?: string | null
           id: string
           linkedin?: string | null
           location?: string | null
+          phone?: string | null
           title?: string | null
           twitter?: string | null
           updated_at?: string | null
@@ -251,11 +257,14 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           bio?: string | null
+          created_at?: string | null
+          email?: string | null
           full_name?: string | null
           github?: string | null
           id?: string
           linkedin?: string | null
           location?: string | null
+          phone?: string | null
           title?: string | null
           twitter?: string | null
           updated_at?: string | null
@@ -374,41 +383,13 @@ export type Database = {
         }
         Relationships: []
       }
-      skill_endorsements: {
-        Row: {
-          created_at: string | null
-          endorser_id: string | null
-          id: string
-          skill_id: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          endorser_id?: string | null
-          id?: string
-          skill_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          endorser_id?: string | null
-          id?: string
-          skill_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "skill_endorsements_skill_id_fkey"
-            columns: ["skill_id"]
-            isOneToOne: false
-            referencedRelation: "skills"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       skills: {
         Row: {
           category: string
           created_at: string | null
           endorsed: number | null
           icon_url: string | null
+          is_public: boolean | null
           id: string
           name: string
           proficiency: number
@@ -421,6 +402,7 @@ export type Database = {
           created_at?: string | null
           endorsed?: number | null
           icon_url?: string | null
+          is_public?: boolean | null
           id?: string
           name: string
           proficiency: number
@@ -433,6 +415,7 @@ export type Database = {
           created_at?: string | null
           endorsed?: number | null
           icon_url?: string | null
+          is_public?: boolean | null
           id?: string
           name?: string
           proficiency?: number

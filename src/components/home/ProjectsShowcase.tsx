@@ -12,7 +12,7 @@ interface ProjectsShowcaseProps {
 }
 
 export default function ProjectsShowcase({ userId }: ProjectsShowcaseProps) {
-  const { projects, loading } = useUserProjects(userId || null);
+  const { projects, loading, error } = useUserProjects(userId || null);
   const [showAll, setShowAll] = useState(false);
 
   if (loading) {
@@ -25,6 +25,17 @@ export default function ProjectsShowcase({ userId }: ProjectsShowcaseProps) {
               Loading projects...
             </p>
           </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (error) {
+    return (
+      <section className="w-full py-16 px-6 md:px-12 lg:px-24 bg-muted/50">
+        <div className="max-w-7xl mx-auto text-center">
+          <h2 className="text-3xl md:text-4xl font-bold mb-4">Featured Projects</h2>
+          <p className="text-lg text-muted-foreground">Projects are temporarily unavailable.</p>
         </div>
       </section>
     );
@@ -114,15 +125,15 @@ export default function ProjectsShowcase({ userId }: ProjectsShowcaseProps) {
                       <div className="flex space-x-2">
                         {project.repoUrl && (
                           <Button size="sm" variant="outline" asChild>
-                            <a href={project.repoUrl} target="_blank" rel="noopener noreferrer">
-                              <Github className="h-4 w-4" />
+                            <a href={project.repoUrl} target="_blank" rel="noopener noreferrer" aria-label={`View ${project.title} source code`}>
+                              <Github className="h-4 w-4" aria-hidden="true" />
                             </a>
                           </Button>
                         )}
                         {project.demoUrl && (
                           <Button size="sm" asChild>
-                            <a href={project.demoUrl} target="_blank" rel="noopener noreferrer">
-                              <ExternalLink className="h-4 w-4" />
+                            <a href={project.demoUrl} target="_blank" rel="noopener noreferrer" aria-label={`Open ${project.title} live demo`}>
+                              <ExternalLink className="h-4 w-4" aria-hidden="true" />
                             </a>
                           </Button>
                         )}
@@ -182,15 +193,15 @@ export default function ProjectsShowcase({ userId }: ProjectsShowcaseProps) {
                       <div className="flex space-x-2">
                         {project.repoUrl && (
                           <Button size="sm" variant="outline" asChild>
-                            <a href={project.repoUrl} target="_blank" rel="noopener noreferrer">
-                              <Github className="h-4 w-4" />
+                            <a href={project.repoUrl} target="_blank" rel="noopener noreferrer" aria-label={`View ${project.title} source code`}>
+                              <Github className="h-4 w-4" aria-hidden="true" />
                             </a>
                           </Button>
                         )}
                         {project.demoUrl && (
                           <Button size="sm" asChild>
-                            <a href={project.demoUrl} target="_blank" rel="noopener noreferrer">
-                              <ExternalLink className="h-4 w-4" />
+                            <a href={project.demoUrl} target="_blank" rel="noopener noreferrer" aria-label={`Open ${project.title} live demo`}>
+                              <ExternalLink className="h-4 w-4" aria-hidden="true" />
                             </a>
                           </Button>
                         )}

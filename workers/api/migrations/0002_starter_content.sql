@@ -1,0 +1,3 @@
+-- Intentionally empty. Production deployments must not publish fabricated
+-- portfolio data or placeholder contact details. Create real content through
+-- the authenticated workspace after provisioning the first administrator.

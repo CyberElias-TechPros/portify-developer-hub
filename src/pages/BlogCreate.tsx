@@ -32,17 +32,19 @@ import {
 } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/lib/api";
 import { Calendar } from 'lucide-react';
 
 const formSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters"),
   excerpt: z.string().min(10, "Excerpt must be at least 10 characters"),
   content: z.string().min(50, "Content must be at least 50 characters"),
-  slug: z.string().min(5, "Slug must be at least 5 characters"),
+  slug: z.string().regex(/^[a-z0-9-]*$/, "Use lowercase letters, numbers, and hyphens").optional(),
   category: z.string().min(1, "Please select a category"),
-  tags: z.string(),
-  series: z.string().optional(),
-  coverImage: z.any().optional(),
+  tags: z.string().max(500, "Keep tags under 500 characters"),
+  series: z.string().max(120).optional(),
+  coverImageUrl: z.string().url("Use a valid image URL").or(z.literal("")),
   published: z.boolean().optional(),
 });
 
@@ -50,6 +52,7 @@ type FormValues = z.infer<typeof formSchema>;
 
 export default function BlogCreate() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
@@ -64,38 +67,40 @@ export default function BlogCreate() {
       category: "",
       tags: "",
       series: "",
+      coverImageUrl: "",
       published: false,
     },
   });
 
   const handleSubmit = async (data: FormValues) => {
+    if (!user) {
+      toast({ title: "Sign in required", description: "Sign in before creating a post.", variant: "destructive" });
+      return;
+    }
     setIsSubmitting(true);
     try {
-      // In a real app, this would save to the database
-      console.log("Blog post data:", data);
-      
-      // Convert tags string to array
-      const tagsArray = data.tags.split(',').map(tag => tag.trim()).filter(tag => tag);
-      
-      // Create slug from title if not provided
-      const slug = data.slug || data.title.toLowerCase().replace(/[^\w\s]/gi, '').replace(/\s+/g, '-');
-      
-      toast({
-        title: "Success!",
-        description: data.published
-          ? "Blog post published successfully!"
-          : "Blog post saved as draft!",
+      const tagsArray = data.tags.split(",").map((tag) => tag.trim()).filter(Boolean).slice(0, 20);
+      const slug = (data.slug || data.title.toLowerCase().replace(/[^a-z0-9\s-]/gi, "").replace(/\s+/g, "-")).replace(/^-|-$/g, "");
+      const words = data.content.trim().split(/\s+/).filter(Boolean).length;
+      const { error } = await supabase.from("blog_posts").insert({
+        user_id: user.id,
+        title: data.title.trim(),
+        excerpt: data.excerpt.trim(),
+        content: data.content.trim(),
+        slug,
+        category: data.category,
+        tags: tagsArray,
+        series: data.series || null,
+        cover_image_url: data.coverImageUrl || null,
+        reading_time: Math.max(1, Math.ceil(words / 200)),
+        published: Boolean(data.published),
+        is_public: true,
       });
-      
-      // Redirect to the blog page
+      if (error) throw error;
+      toast({ title: data.published ? "Post published" : "Draft saved", description: data.published ? "Your article is now visible on your portfolio." : "Your draft is safely stored." });
       navigate("/blog");
     } catch (error) {
-      console.error("Error saving blog post:", error);
-      toast({
-        title: "Error",
-        description: "Failed to save the blog post. Please try again.",
-        variant: "destructive",
-      });
+      toast({ title: "Could not save post", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
@@ -266,8 +271,9 @@ export default function BlogCreate() {
                       
                       <div className="flex justify-between space-x-2 pt-4">
                         <Button
-                          type="button"
+                          type="submit"
                           variant="outline"
+                          disabled={isSubmitting}
                           onClick={() => form.setValue("published", false)}
                         >
                           Save as Draft
@@ -389,12 +395,17 @@ export default function BlogCreate() {
                         )}
                       />
 
-                      <FormItem>
-                        <FormLabel>Cover Image (Optional)</FormLabel>
-                        <FormControl>
-                          <Input type="file" accept="image/*" />
-                        </FormControl>
-                      </FormItem>
+                      <FormField
+                        control={form.control}
+                        name="coverImageUrl"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Cover image URL (optional)</FormLabel>
+                            <FormControl><Input type="url" placeholder="https://…" {...field} /></FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     </CardContent>
                   </Card>
                 </div>

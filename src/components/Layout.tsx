@@ -12,8 +12,9 @@ interface LayoutProps {
 export default function Layout({ children, hideAnimation = false }: LayoutProps) {
   return (
     <div className="min-h-screen flex flex-col">
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-foreground focus:shadow-lg">Skip to content</a>
       <Navbar />
-      <main className="flex-grow">
+      <main id="main-content" className="flex-grow">
         {hideAnimation ? (
           children
         ) : (

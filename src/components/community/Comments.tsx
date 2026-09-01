@@ -1,259 +1,90 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { supabase } from "@/lib/api";
+import { useAuth } from "@/hooks/useAuth";
+import type { Comment } from "@/types/portfolio";
+import { MessageCircle, Reply, Trash2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { Comment } from '@/types/portfolio';
-import { MessageCircle, Reply, Trash2 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+interface CommentsProps { contentType: "project" | "blog_post"; contentId: string; }
 
-interface CommentsProps {
-  contentType: 'project' | 'blog_post';
-  contentId: string;
-}
+type CommentWithProfile = Comment & { user?: { id: string; full_name?: string | null; avatar_url?: string | null } | null };
 
 export default function Comments({ contentType, contentId }: CommentsProps) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [newComment, setNewComment] = useState('');
+  const [comments, setComments] = useState<CommentWithProfile[]>([]);
+  const [newComment, setNewComment] = useState("");
   const [replyTo, setReplyTo] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchComments();
-  }, [contentType, contentId]);
-
-  const fetchComments = async () => {
+  const fetchComments = useCallback(async () => {
     setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('comments')
-        .select(`
-          *,
-          user:profiles(id, full_name, avatar_url)
-        `)
-        .eq('content_type', contentType)
-        .eq('content_id', contentId)
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-
-      // Organize comments into tree structure
-      const commentMap = new Map();
-      const rootComments: Comment[] = [];
-
-      (data || []).forEach(comment => {
-        const formattedComment: Comment = {
-          ...comment,
-          content_type: comment.content_type as 'project' | 'blog_post',
-          user: Array.isArray(comment.user) ? comment.user[0] : comment.user,
-          replies: []
-        };
-        commentMap.set(comment.id, formattedComment);
-
-        if (comment.parent_id) {
-          const parent = commentMap.get(comment.parent_id);
-          if (parent) {
-            parent.replies.push(formattedComment);
-          }
-        } else {
-          rootComments.push(formattedComment);
-        }
-      });
-
-      setComments(rootComments);
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: 'Failed to load comments.',
-        variant: 'destructive'
-      });
-    } finally {
+    setError(null);
+    const result = await supabase.from("comments").select("*").eq("content_type", contentType).eq("content_id", contentId).order("created_at", { ascending: true });
+    if (result.error) {
+      setError("Comments could not be loaded.");
       setLoading(false);
-    }
-  };
-
-  const submitComment = async () => {
-    if (!user) {
-      toast({
-        title: 'Authentication required',
-        description: 'Please sign in to comment.',
-        variant: 'destructive'
-      });
       return;
     }
+    const nodes = new Map<string, CommentWithProfile>();
+    (result.data ?? []).forEach((comment) => {
+      const profile = Array.isArray(comment.user) ? comment.user[0] : comment.user;
+      nodes.set(comment.id, { id: comment.id, user_id: comment.user_id, content_type: comment.content_type as "project" | "blog_post", content_id: comment.content_id, content: comment.content, parent_id: comment.parent_id, created_at: comment.created_at || new Date().toISOString(), updated_at: comment.updated_at || comment.created_at || new Date().toISOString(), user: profile ? { id: profile.id, full_name: profile.full_name, avatar_url: profile.avatar_url } : null, replies: [] });
+    });
+    const roots: CommentWithProfile[] = [];
+    nodes.forEach((comment) => {
+      if (comment.parent_id && nodes.has(comment.parent_id)) nodes.get(comment.parent_id)?.replies?.push(comment);
+      else roots.push(comment);
+    });
+    setComments(roots);
+    setLoading(false);
+  }, [contentId, contentType]);
 
-    if (!newComment.trim()) return;
+  useEffect(() => { void fetchComments(); }, [fetchComments]);
 
+  const commentCount = useMemo(() => {
+    const count = (items: CommentWithProfile[]): number => items.reduce((total, item) => total + 1 + count((item.replies ?? []) as CommentWithProfile[]), 0);
+    return count(comments);
+  }, [comments]);
+
+  const submitComment = async () => {
+    const content = newComment.trim();
+    if (!user) { toast({ title: "Sign in required", description: "Please sign in to comment.", variant: "destructive" }); return; }
+    if (content.length < 1 || content.length > 2_000) { toast({ title: "Comment length", description: "Comments must be between 1 and 2,000 characters.", variant: "destructive" }); return; }
     setSubmitting(true);
-    try {
-      const { error } = await supabase
-        .from('comments')
-        .insert({
-          user_id: user.id,
-          content_type: contentType,
-          content_id: contentId,
-          content: newComment.trim(),
-          parent_id: replyTo
-        });
-
-      if (error) throw error;
-
-      setNewComment('');
-      setReplyTo(null);
-      fetchComments();
-
-      toast({
-        title: 'Comment posted',
-        description: 'Your comment has been posted successfully.'
-      });
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: 'Failed to post comment.',
-        variant: 'destructive'
-      });
-    } finally {
-      setSubmitting(false);
-    }
+    const result = await supabase.from("comments").insert({ user_id: user.id, content_type: contentType, content_id: contentId, content, parent_id: replyTo });
+    if (result.error) toast({ title: "Could not post comment", description: result.error.message, variant: "destructive" });
+    else { setNewComment(""); setReplyTo(null); toast({ title: "Comment posted", description: "Your comment is now visible." }); await fetchComments(); }
+    setSubmitting(false);
   };
 
   const deleteComment = async (commentId: string) => {
     if (!user) return;
-
-    try {
-      const { error } = await supabase
-        .from('comments')
-        .delete()
-        .eq('id', commentId)
-        .eq('user_id', user.id);
-
-      if (error) throw error;
-
-      fetchComments();
-      toast({
-        title: 'Comment deleted',
-        description: 'Your comment has been deleted.'
-      });
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: 'Failed to delete comment.',
-        variant: 'destructive'
-      });
-    }
+    const canModerate = user.role === "admin" || user.role === "moderator";
+    const query = supabase.from("comments").delete().eq("id", commentId);
+    if (!canModerate) query.eq("user_id", user.id);
+    const result = await query;
+    if (result.error) toast({ title: "Could not delete comment", description: result.error.message, variant: "destructive" });
+    else { toast({ title: "Comment deleted" }); await fetchComments(); }
   };
 
-  const CommentItem = ({ comment, isReply = false }: { comment: Comment; isReply?: boolean }) => (
-    <Card className={`${isReply ? 'ml-8 mt-2' : 'mb-4'}`}>
+  const renderComment = (comment: CommentWithProfile, depth = 0): JSX.Element => (
+    <Card key={comment.id} className={depth > 0 ? "ml-4 md:ml-8 mt-2" : "mb-4"}>
       <CardContent className="p-4">
-        <div className="flex items-start space-x-3">
-          <Avatar className="h-8 w-8">
-            <AvatarImage src={comment.user?.avatar_url || ''} />
-            <AvatarFallback>
-              {comment.user?.full_name?.charAt(0) || 'U'}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1">
-            <div className="flex items-center space-x-2 mb-1">
-              <span className="font-medium text-sm">
-                {comment.user?.full_name || 'Anonymous'}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {new Date(comment.created_at).toLocaleDateString()}
-              </span>
-            </div>
-            <p className="text-sm">{comment.content}</p>
-            <div className="flex items-center space-x-2 mt-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setReplyTo(comment.id)}
-                className="h-6 px-2"
-              >
-                <Reply className="h-3 w-3 mr-1" />
-                Reply
-              </Button>
-              {user && user.id === comment.user_id && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => deleteComment(comment.id)}
-                  className="h-6 px-2 text-destructive hover:text-destructive"
-                >
-                  <Trash2 className="h-3 w-3 mr-1" />
-                  Delete
-                </Button>
-              )}
-            </div>
-          </div>
+        <div className="flex items-start gap-3">
+          <Avatar className="h-8 w-8"><AvatarImage src={comment.user?.avatar_url || undefined} alt="" /><AvatarFallback>{comment.user?.full_name?.charAt(0)?.toUpperCase() || "U"}</AvatarFallback></Avatar>
+          <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2 mb-1"><span className="font-medium text-sm">{comment.user?.full_name || "Community member"}</span><time className="text-xs text-muted-foreground" dateTime={comment.created_at}>{new Date(comment.created_at).toLocaleDateString()}</time></div><p className="text-sm whitespace-pre-wrap break-words">{comment.content}</p><div className="flex items-center gap-1 mt-2"><Button type="button" variant="ghost" size="sm" onClick={() => setReplyTo(comment.id)} className="h-7 px-2"><Reply className="h-3 w-3 mr-1" />Reply</Button>{(user?.id === comment.user_id || user?.role === "admin" || user?.role === "moderator") && <Button type="button" variant="ghost" size="sm" onClick={() => void deleteComment(comment.id)} className="h-7 px-2 text-destructive hover:text-destructive"><Trash2 className="h-3 w-3 mr-1" />Delete</Button>}</div></div>
         </div>
-        {comment.replies && comment.replies.map(reply => (
-          <CommentItem key={reply.id} comment={reply} isReply />
-        ))}
+        {depth < 4 && (comment.replies ?? []).map((reply) => renderComment(reply as CommentWithProfile, depth + 1))}
       </CardContent>
     </Card>
   );
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center space-x-2">
-        <MessageCircle className="h-5 w-5" />
-        <h3 className="text-lg font-semibold">
-          Comments ({comments.length})
-        </h3>
-      </div>
-
-      {user && (
-        <div className="space-y-3">
-          {replyTo && (
-            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-              <span>Replying to comment</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setReplyTo(null)}
-                className="h-6 px-2"
-              >
-                Cancel
-              </Button>
-            </div>
-          )}
-          <Textarea
-            placeholder="Write a comment..."
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            className="min-h-20"
-          />
-          <Button
-            onClick={submitComment}
-            disabled={submitting || !newComment.trim()}
-          >
-            {submitting ? 'Posting...' : 'Post Comment'}
-          </Button>
-        </div>
-      )}
-
-      {loading ? (
-        <div className="text-center py-8">
-          <p className="text-muted-foreground">Loading comments...</p>
-        </div>
-      ) : comments.length > 0 ? (
-        <div>
-          {comments.map(comment => (
-            <CommentItem key={comment.id} comment={comment} />
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-8">
-          <p className="text-muted-foreground">No comments yet. Be the first to comment!</p>
-        </div>
-      )}
-    </div>
-  );
+  return <div className="space-y-6"><div className="flex items-center gap-2"><MessageCircle className="h-5 w-5" aria-hidden="true" /><h2 className="text-lg font-semibold">Comments ({commentCount})</h2></div>{user && <div className="space-y-3">{replyTo && <div className="flex items-center gap-2 text-sm text-muted-foreground"><span>Replying to a comment</span><Button type="button" variant="ghost" size="sm" onClick={() => setReplyTo(null)} className="h-7 px-2">Cancel</Button></div>}<Textarea maxLength={2000} aria-label="Comment" placeholder="Share a thoughtful comment…" value={newComment} onChange={(event) => setNewComment(event.target.value)} /><div className="flex items-center justify-between"><span className="text-xs text-muted-foreground">{newComment.length}/2000</span><Button type="button" onClick={() => void submitComment()} disabled={submitting || !newComment.trim()}>{submitting ? "Posting…" : "Post comment"}</Button></div></div>}{loading ? <p className="py-8 text-center text-muted-foreground">Loading comments…</p> : error ? <div className="py-8 text-center"><p className="text-muted-foreground">{error}</p><Button variant="link" onClick={() => void fetchComments()}>Try again</Button></div> : comments.length ? <div>{comments.map((comment) => renderComment(comment))}</div> : <p className="py-8 text-center text-muted-foreground">No comments yet. Be the first to join the conversation.</p>}</div>;
 }

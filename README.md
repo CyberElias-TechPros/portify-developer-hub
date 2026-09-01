@@ -1,73 +1,41 @@
-# Welcome to your Lovable project
+# Portify
 
-## Project info
+Portify is a developer portfolio workspace. Authenticated users can maintain a profile, username, projects, skills, work experience, articles, theme settings, and a private resume. Public visitors can browse public content, view username portfolios, send contact messages, and use community features.
 
-**URL**: https://lovable.dev/projects/3fac1bc9-7386-4ac4-93ec-7376050fad1c
+## Stack
 
-## How can I edit this code?
+- React + TypeScript + Vite + Tailwind CSS on Vercel
+- Cloudflare Workers API
+- Cloudflare D1 relational database
+- Optional Worker integrations: GitHub, Nominatim, and Resend
 
-There are several ways of editing your application.
+The browser does not connect to Supabase or a database directly. The Worker validates input, enforces ownership/admin authorization, handles sessions in `HttpOnly` cookies, and returns only allowlisted data.
 
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/3fac1bc9-7386-4ac4-93ec-7376050fad1c) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+## Quick start
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+npm ci
+npx wrangler d1 migrations apply portify-db --local
+npx wrangler dev --local --ip 0.0.0.0 --port 8787
+# in a second terminal
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+The Vite development server proxies `/api` to the local Worker. Copy `.env.example` only when a different API target is needed. Never commit secrets or provider credentials.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Checks
 
-**Use GitHub Codespaces**
+```sh
+npm run lint
+npx tsc --noEmit -p tsconfig.app.json
+npx tsc --noEmit --types @cloudflare/workers-types --target ES2022 --module ESNext --moduleResolution Bundler --skipLibCheck workers/api/src/index.ts
+npm run build
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Deployment
 
-## What technologies are used for this project?
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the runtime/data model and [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for Cloudflare D1/Worker and Vercel setup, secrets, migrations, first-admin provisioning, and verification. `wrangler.toml` contains a placeholder D1 ID that must be replaced with the ID created for the target Cloudflare account.
 
-This project is built with:
+## Data and migrations
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/3fac1bc9-7386-4ac4-93ec-7376050fad1c) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes it is!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+New installations intentionally contain no fabricated portfolio or contact data. Apply migrations in order. Do not rewrite an applied migration; add a new numbered migration and back up D1 before applying it remotely. The former illustrative seed is neutralized for new databases, a targeted cleanup migration removes its known demo rows from databases where it was previously applied, and the admin bootstrap lock migration makes first-admin provisioning race-safe.

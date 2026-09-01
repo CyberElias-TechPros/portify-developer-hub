@@ -1,45 +1,25 @@
-
+import { useEffect, useState } from "react";
 import { Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useEffect, useState } from "react";
+import { applyThemePreference, getThemePreference, subscribeToThemePreference, type ThemePreference } from "@/lib/theme";
 
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [theme, setTheme] = useState<ThemePreference>("light");
 
   useEffect(() => {
-    // Check for saved theme or system preference
-    const savedTheme = localStorage.getItem("theme");
     const systemPrefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    
-    if (savedTheme === "dark" || (!savedTheme && systemPrefersDark)) {
-      setTheme("dark");
-      document.documentElement.classList.add("dark");
-    } else {
-      setTheme("light");
-      document.documentElement.classList.remove("dark");
-    }
+    const nextTheme = getThemePreference(systemPrefersDark ? "dark" : "light");
+    setTheme(nextTheme);
+    applyThemePreference(nextTheme);
+    return subscribeToThemePreference(setTheme);
   }, []);
 
-  const toggleTheme = () => {
-    if (theme === "light") {
-      setTheme("dark");
-      document.documentElement.classList.add("dark");
-      localStorage.setItem("theme", "dark");
-    } else {
-      setTheme("light");
-      document.documentElement.classList.remove("dark");
-      localStorage.setItem("theme", "light");
-    }
-  };
+  const toggleTheme = () => applyThemePreference(theme === "light" ? "dark" : "light");
 
   return (
-    <Button variant="ghost" size="icon" onClick={toggleTheme} className="rounded-full">
-      {theme === "light" ? (
-        <Sun className="h-5 w-5" />
-      ) : (
-        <Moon className="h-5 w-5" />
-      )}
-      <span className="sr-only">Toggle theme</span>
+    <Button type="button" variant="ghost" size="icon" onClick={toggleTheme} className="rounded-full" aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}>
+      {theme === "light" ? <Sun className="h-5 w-5" aria-hidden="true" /> : <Moon className="h-5 w-5" aria-hidden="true" />}
+      <span className="sr-only">{theme === "light" ? "Switch to dark mode" : "Switch to light mode"}</span>
     </Button>
   );
 }

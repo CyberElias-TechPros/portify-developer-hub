@@ -1,96 +1,34 @@
+import { useEffect, useState } from "react";
+import { Card } from "./ui/card";
+import { Skeleton } from "./ui/skeleton";
+import { Button } from "./ui/button";
+import { MapPin, ExternalLink } from "lucide-react";
+import { api } from "@/lib/api";
 
-import { useEffect, useRef, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { Card } from './ui/card';
-import { Skeleton } from './ui/skeleton';
+interface MapProps { address?: string; height?: string; className?: string; }
+type Geocode = { latitude: number; longitude: number; label: string };
 
-interface MapProps {
-  address?: string;
-  height?: string;
-  className?: string;
-}
-
-export default function Map({ address = "San Francisco, CA", height = "400px", className = "" }: MapProps) {
-  const mapRef = useRef<HTMLDivElement>(null);
-  const [loading, setLoading] = useState(true);
-  const [mapAddress, setMapAddress] = useState(address);
-
+export default function Map({ address = "", height = "400px", className = "" }: MapProps) {
+  const [location, setLocation] = useState<Geocode | null>(null);
+  const [loading, setLoading] = useState(Boolean(address));
+  const [error, setError] = useState(false);
   useEffect(() => {
-    // Fetch contact info for the address
-    const fetchContactInfo = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('site_settings')
-          .select('value')
-          .eq('key', 'contact_info')
-          .single();
-          
-        if (!error && data && data.value) {
-          const contactInfo = typeof data.value === 'string' ? 
-            JSON.parse(data.value) : data.value;
-            
-          if (contactInfo.address) {
-            setMapAddress(contactInfo.address);
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching address:", error);
-      }
-    };
-    
-    fetchContactInfo();
-  }, []);
-
-  useEffect(() => {
-    const loadMap = async () => {
-      try {
-        setLoading(true);
-        
-        if (!mapRef.current) return;
-        
-        // Create a simple embeddable map using Open Street Map
-        const encodedAddress = encodeURIComponent(mapAddress);
-        const embedUrl = `https://www.openstreetmap.org/export/embed.html?bbox=-180%2C-90%2C180%2C90&layer=mapnik&marker=true&query=${encodedAddress}`;
-        
-        const iframe = document.createElement('iframe');
-        iframe.width = '100%';
-        iframe.height = '100%';
-        iframe.frameBorder = '0';
-        iframe.scrolling = 'no';
-        iframe.marginHeight = '0';
-        iframe.marginWidth = '0';
-        iframe.src = embedUrl;
-        iframe.style.borderRadius = '0.5rem';
-        
-        // Clear previous content and append iframe
-        if (mapRef.current) {
-          mapRef.current.innerHTML = '';
-          mapRef.current.appendChild(iframe);
-        }
-      } catch (error) {
-        console.error("Error loading map:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    if (mapAddress) {
-      loadMap();
-    }
-  }, [mapAddress]);
-
-  return (
-    <Card className={`overflow-hidden ${className}`}>
-      {loading ? (
-        <Skeleton className="w-full" style={{ height }} />
-      ) : (
-        <div 
-          ref={mapRef} 
-          className="w-full" 
-          style={{ height }}
-          aria-label={`Map showing location: ${mapAddress}`} 
-        />
-      )}
-    </Card>
-  );
+    let mounted = true;
+    if (!address.trim()) { setLoading(false); setLocation(null); return; }
+    setLoading(true); setError(false);
+    api.request<Geocode>(`/geocode?address=${encodeURIComponent(address.trim())}`).then((result) => {
+      if (!mounted) return;
+      if (result.error || !result.data || !Number.isFinite(result.data.latitude) || !Number.isFinite(result.data.longitude)) { setError(true); setLocation(null); } else setLocation(result.data);
+      setLoading(false);
+    });
+    return () => { mounted = false; };
+  }, [address]);
+  const fallbackUrl = `https://www.openstreetmap.org/search?query=${encodeURIComponent(address)}`;
+  if (!address.trim()) return null;
+  if (loading) return <Card className={`overflow-hidden ${className}`}><Skeleton className="w-full" style={{ height }} /></Card>;
+  if (error || !location) return <Card className={`flex items-center justify-center p-6 ${className}`} style={{ minHeight: height }}><div className="text-center"><MapPin className="mx-auto h-8 w-8 text-primary" aria-hidden="true" /><p className="mt-2 text-sm text-muted-foreground">Location preview is unavailable.</p><Button className="mt-4" variant="outline" asChild><a href={fallbackUrl} target="_blank" rel="noopener noreferrer">Open in OpenStreetMap<ExternalLink className="ml-2 h-4 w-4" /></a></Button></div></Card>;
+  const delta = 0.01;
+  const bbox = [location.longitude - delta, location.latitude - delta, location.longitude + delta, location.latitude + delta].map((value) => value.toFixed(6)).join(",");
+  const embedUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${location.latitude.toFixed(6)}%2C${location.longitude.toFixed(6)}`;
+  return <Card className={`overflow-hidden ${className}`}><iframe title={`Map showing ${location.label}`} src={embedUrl} style={{ height }} className="w-full border-0" loading="lazy" referrerPolicy="no-referrer" /><div className="flex items-center justify-between gap-3 border-t px-4 py-2 text-sm"><span className="truncate text-muted-foreground">{location.label}</span><a className="shrink-0 text-primary hover:underline" href={`https://www.openstreetmap.org/?mlat=${location.latitude}&mlon=${location.longitude}#map=14/${location.latitude}/${location.longitude}`} target="_blank" rel="noopener noreferrer">Open map</a></div></Card>;
 }
