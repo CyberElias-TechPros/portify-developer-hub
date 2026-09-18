@@ -1,166 +1,95 @@
-
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { supabase } from '@/integrations/supabase/client';
+import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
+import { UserPlus, UserCheck, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { api } from '@/lib/api/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Users, UserPlus } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
 
 interface FollowButtonProps {
   targetUserId: string;
   showCount?: boolean;
+  size?: 'sm' | 'md';
+  className?: string;
 }
 
-export default function FollowButton({ targetUserId, showCount = false }: FollowButtonProps) {
+export default function FollowButton({
+  targetUserId,
+  showCount = true,
+  size = 'md',
+  className = '',
+}: FollowButtonProps) {
   const { user } = useAuth();
-  const { toast } = useToast();
+  const navigate = useNavigate();
   const [isFollowing, setIsFollowing] = useState(false);
-  const [followerCount, setFollowerCount] = useState(0);
+  const [followers, setFollowers] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    if (user && targetUserId) {
-      checkFollowStatus();
-      fetchFollowerCount();
-    }
-  }, [user, targetUserId]);
+    if (!targetUserId) return;
+    void api
+      .get<{ followers: number; isFollowing: boolean }>(`/api/social/follow/${targetUserId}`)
+      .then(({ data }) => {
+        if (data) {
+          setIsFollowing(Boolean(data.isFollowing));
+          setFollowers(data.followers ?? 0);
+        }
+        setReady(true);
+      });
+  }, [targetUserId, user?.id]);
 
-  const checkFollowStatus = async () => {
-    if (!user) return;
-
-    const { data, error } = await supabase
-      .from('user_follows')
-      .select('id')
-      .eq('follower_id', user.id)
-      .eq('following_id', targetUserId)
-      .single();
-
-    if (!error && data) {
-      setIsFollowing(true);
-    }
-  };
-
-  const fetchFollowerCount = async () => {
-    const { data, error } = await supabase
-      .from('user_follows')
-      .select('id', { count: 'exact' })
-      .eq('following_id', targetUserId);
-
-    if (!error && data) {
-      setFollowerCount(data.length);
-    }
-  };
-
-  const handleFollow = async () => {
+  const toggle = async () => {
     if (!user) {
-      toast({
-        title: 'Authentication required',
-        description: 'Please sign in to follow users.',
-        variant: 'destructive'
-      });
+      navigate('/auth');
       return;
     }
-
-    if (user.id === targetUserId) {
-      toast({
-        title: 'Invalid action',
-        description: 'You cannot follow yourself.',
-        variant: 'destructive'
-      });
-      return;
-    }
-
     setLoading(true);
-
-    try {
-      if (isFollowing) {
-        // Unfollow
-        const { error } = await supabase
-          .from('user_follows')
-          .delete()
-          .eq('follower_id', user.id)
-          .eq('following_id', targetUserId);
-
-        if (error) throw error;
-
-        setIsFollowing(false);
-        setFollowerCount(prev => prev - 1);
-        toast({
-          title: 'Unfollowed',
-          description: 'You have unfollowed this user.'
-        });
-      } else {
-        // Follow
-        const { error } = await supabase
-          .from('user_follows')
-          .insert({
-            follower_id: user.id,
-            following_id: targetUserId
-          });
-
-        if (error) throw error;
-
-        setIsFollowing(true);
-        setFollowerCount(prev => prev + 1);
-        toast({
-          title: 'Following',
-          description: 'You are now following this user.'
-        });
-
-        // Create activity feed entry
-        await supabase
-          .from('activity_feed')
-          .insert({
-            user_id: targetUserId,
-            actor_id: user.id,
-            activity_type: 'follow'
-          });
-      }
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Something went wrong.',
-        variant: 'destructive'
-      });
-    } finally {
-      setLoading(false);
+    const next = !isFollowing;
+    const { data, error } = next
+      ? await api.post<{ followers: number }>(`/api/social/follow/${targetUserId}`)
+      : await api.delete<{ followers: number }>(`/api/social/follow/${targetUserId}`);
+    setLoading(false);
+    if (error) {
+      toast.error(error.message);
+      return;
     }
+    setIsFollowing(next);
+    setFollowers(data?.followers ?? followers + (next ? 1 : -1));
+    toast.success(next ? 'Following — you will see their updates' : 'Unfollowed');
   };
 
-  if (!user || user.id === targetUserId) {
-    return showCount ? (
-      <div className="flex items-center space-x-2 text-muted-foreground">
-        <Users className="h-4 w-4" />
-        <span>{followerCount} followers</span>
-      </div>
-    ) : null;
-  }
+  const padding = size === 'sm' ? 'px-3.5 py-2 text-xs' : 'px-5 py-2.5 text-sm';
 
   return (
-    <div className="flex items-center space-x-2">
-      <Button
-        onClick={handleFollow}
-        disabled={loading}
-        variant={isFollowing ? "outline" : "default"}
-        size="sm"
+    <button
+      onClick={toggle}
+      disabled={loading || !ready}
+      className={`group relative inline-flex items-center gap-2 overflow-hidden rounded-full border transition-all duration-500 ease-cinematic disabled:opacity-60 ${
+        isFollowing
+          ? 'border-white/15 bg-white/[0.04] text-foreground'
+          : 'border-primary/40 bg-primary/10 text-primary hover:bg-primary/20'
+      } ${padding} ${className}`}
+    >
+      <motion.span
+        key={isFollowing ? 'following' : 'follow'}
+        initial={{ scale: 0.6, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: 'spring', stiffness: 420, damping: 22 }}
+        className="flex items-center gap-2"
       >
-        {isFollowing ? (
-          <>
-            <Users className="h-4 w-4 mr-2" />
-            Following
-          </>
+        {loading ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : isFollowing ? (
+          <UserCheck className="h-3.5 w-3.5" />
         ) : (
-          <>
-            <UserPlus className="h-4 w-4 mr-2" />
-            Follow
-          </>
+          <UserPlus className="h-3.5 w-3.5" />
         )}
-      </Button>
+        {isFollowing ? 'Following' : 'Follow'}
+      </motion.span>
       {showCount && (
-        <span className="text-sm text-muted-foreground">
-          {followerCount} followers
-        </span>
+        <span className="mono border-l border-current/20 pl-2 text-[10px] opacity-80">{followers}</span>
       )}
-    </div>
+    </button>
   );
 }

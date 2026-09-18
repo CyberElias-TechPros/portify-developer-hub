@@ -1,91 +1,197 @@
+import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { Briefcase, GraduationCap, Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
+import Layout from '@/components/Layout';
+import { EmptyState, GhostButton, GlowButton, PageHeader, Panel, Tag, fieldClasses } from '@/components/ui-kit';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Reveal } from '@/components/experience/Reveal';
+import { useAuth } from '@/hooks/useAuth';
+import { api, db } from '@/lib/api/client';
+import usePageMeta from '@/hooks/usePageMeta';
 
-import { useState } from "react";
-import Layout from "@/components/Layout";
-import { Calendar, MapPin, Briefcase, Tag, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import type { Experience } from "@/types/portfolio";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+interface ExperienceRow {
+  id: string;
+  company: string;
+  position: string;
+  employment?: string | null;
+  location?: string | null;
+  start_date: string;
+  end_date?: string | null;
+  description?: string | null;
+  company_url?: string | null;
+  technologies?: string[];
+}
 
-export default function ExperiencePage() {
-  // Fetch experiences data
-  const { data: experiences, isLoading } = useQuery({
-    queryKey: ["experiences"],
-    queryFn: async () => {
-      // In a real app, this would fetch from the Supabase database
-      // For now, we'll use mock data
-      return [
-        {
-          id: "1",
-          company: "Tech Innovators",
-          position: "Senior Frontend Developer",
-          startDate: "2021-06-01",
-          endDate: null,
-          current: true,
-          description: "Lead developer for enterprise web applications using React, TypeScript, and GraphQL. Implemented CI/CD pipelines and improved performance by 35%.",
-          logoUrl: "https://source.unsplash.com/random/100x100?tech",
-          location: "San Francisco, CA",
-          technologies: ["React", "TypeScript", "GraphQL", "Tailwind CSS", "Jest"],
-          projects: ["Company Dashboard", "Customer Portal"]
-        },
-        {
-          id: "2",
-          company: "Digital Solutions Inc",
-          position: "Frontend Developer",
-          startDate: "2019-03-15",
-          endDate: "2021-05-30",
-          current: false,
-          description: "Developed responsive web applications for clients in financial sector. Collaborated with UX designers to implement pixel-perfect interfaces.",
-          logoUrl: "https://source.unsplash.com/random/100x100?digital",
-          location: "Boston, MA",
-          technologies: ["React", "JavaScript", "SASS", "Redux", "REST APIs"],
-          projects: ["Banking Portal", "Investment Dashboard"]
-        },
-        {
-          id: "3",
-          company: "Creative Web Agency",
-          position: "Junior Developer",
-          startDate: "2017-09-01",
-          endDate: "2019-02-28",
-          current: false,
-          description: "Built websites and web applications for various clients using modern web technologies and frameworks.",
-          logoUrl: "https://source.unsplash.com/random/100x100?creative",
-          location: "Portland, OR",
-          technologies: ["JavaScript", "HTML", "CSS", "jQuery", "Bootstrap"],
-          projects: ["E-commerce Site", "Company Website"]
-        }
-      ] as Experience[];
+interface EducationRow {
+  id: string;
+  institution: string;
+  degree: string;
+  field?: string | null;
+  location?: string | null;
+  start_date: string;
+  end_date?: string | null;
+  description?: string | null;
+}
+
+const emptyExperience = {
+  company: '',
+  position: '',
+  employment: 'Full-time',
+  location: '',
+  start_date: '',
+  end_date: '',
+  description: '',
+  company_url: '',
+  technologies: '',
+};
+
+const emptyEducation = {
+  institution: '',
+  degree: '',
+  field: '',
+  location: '',
+  start_date: '',
+  end_date: '',
+  description: '',
+};
+
+export default function Experience() {
+  usePageMeta({ title: 'Track record · Portify', description: 'Work history and education that feed your portfolio, résumé and public profile.', path: '/experience' });
+
+  const { user } = useAuth();
+  const [experiences, setExperiences] = useState<ExperienceRow[]>([]);
+  const [education, setEducation] = useState<EducationRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const [experienceOpen, setExperienceOpen] = useState(false);
+  const [editingExperience, setEditingExperience] = useState<ExperienceRow | null>(null);
+  const [experienceForm, setExperienceForm] = useState({ ...emptyExperience });
+
+  const [educationOpen, setEducationOpen] = useState(false);
+  const [editingEducation, setEditingEducation] = useState<EducationRow | null>(null);
+  const [educationForm, setEducationForm] = useState({ ...emptyEducation });
+
+  const load = useCallback(async () => {
+    if (!user) {
+      setLoading(false);
+      return;
     }
-  });
+    setLoading(true);
+    const [experienceResult, educationResult] = await Promise.all([
+      api.get<ExperienceRow[]>(`/api/db/experiences?f.user_id=eq.${user.id}&order=start_date.desc&limit=100`),
+      api.get<EducationRow[]>(`/api/db/education?f.user_id=eq.${user.id}&order=start_date.desc&limit=100`),
+    ]);
+    setExperiences(Array.isArray(experienceResult.data) ? experienceResult.data : []);
+    setEducation(Array.isArray(educationResult.data) ? educationResult.data : []);
+    setLoading(false);
+  }, [user]);
 
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
-  const toggleExpand = (id: string) => {
-    setExpandedId(expandedId === id ? null : id);
+  const saveExperience = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!experienceForm.company.trim() || !experienceForm.position.trim() || !experienceForm.start_date) {
+      toast.error('Company, role and start date are required');
+      return;
+    }
+    setSaving(true);
+    const payload = {
+      company: experienceForm.company.trim(),
+      position: experienceForm.position.trim(),
+      employment: experienceForm.employment || null,
+      location: experienceForm.location.trim() || null,
+      start_date: experienceForm.start_date,
+      end_date: experienceForm.end_date || null,
+      description: experienceForm.description.trim() || null,
+      company_url: experienceForm.company_url.trim() || null,
+      technologies: experienceForm.technologies
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean),
+      updated_at: new Date().toISOString(),
+    };
+    const { error } = editingExperience
+      ? await db.from('experiences').update(payload).eq('id', editingExperience.id)
+      : await db.from('experiences').insert({ ...payload, user_id: user!.id, position_order: 0 });
+    setSaving(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(editingExperience ? 'Role updated' : 'Role added');
+    setExperienceOpen(false);
+    void load();
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat('en-US', {
-      month: 'short',
-      year: 'numeric'
-    }).format(date);
+  const saveEducation = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!educationForm.institution.trim() || !educationForm.degree.trim() || !educationForm.start_date) {
+      toast.error('Institution, qualification and start date are required');
+      return;
+    }
+    setSaving(true);
+    const payload = {
+      institution: educationForm.institution.trim(),
+      degree: educationForm.degree.trim(),
+      field: educationForm.field.trim() || null,
+      location: educationForm.location.trim() || null,
+      start_date: educationForm.start_date,
+      end_date: educationForm.end_date || null,
+      description: educationForm.description.trim() || null,
+      updated_at: new Date().toISOString(),
+    };
+    const { error } = editingEducation
+      ? await db.from('education').update(payload).eq('id', editingEducation.id)
+      : await db.from('education').insert({ ...payload, user_id: user!.id, position_order: 0 });
+    setSaving(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(editingEducation ? 'Education updated' : 'Education added');
+    setEducationOpen(false);
+    void load();
   };
 
-  if (isLoading) {
+  const removeExperience = async (row: ExperienceRow) => {
+    const { error } = await db.from('experiences').delete().eq('id', row.id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setExperiences((current) => current.filter((item) => item.id !== row.id));
+    toast.success('Role removed');
+  };
+
+  const removeEducation = async (row: EducationRow) => {
+    const { error } = await db.from('education').delete().eq('id', row.id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setEducation((current) => current.filter((item) => item.id !== row.id));
+    toast.success('Education removed');
+  };
+
+  if (!user) {
     return (
       <Layout>
-        <div className="w-full py-16 px-6 md:px-12 lg:px-24 animate-pulse">
-          <h1 className="text-3xl font-bold mb-8 bg-muted h-10 w-1/3 rounded"></h1>
-          <div className="space-y-8">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="bg-muted h-64 rounded-lg"></div>
-            ))}
-          </div>
+        <div className="mx-auto max-w-3xl px-6 py-24">
+          <EmptyState
+            icon={Briefcase}
+            title="Sign in to build your timeline"
+            description="Work history and education feed your portfolio, résumé and public profile."
+            action={
+              <Link to="/auth">
+                <GlowButton>Sign in</GlowButton>
+              </Link>
+            }
+          />
         </div>
       </Layout>
     );
@@ -93,168 +199,382 @@ export default function ExperiencePage() {
 
   return (
     <Layout>
-      <div className="w-full py-16 px-6 md:px-12 lg:px-24">
-        <h1 className="text-3xl font-bold mb-2">Professional Experience</h1>
-        <p className="text-muted-foreground mb-8">My career journey and professional growth</p>
+      <div className="mx-auto max-w-6xl px-6 pb-24">
+        <PageHeader
+          eyebrow="Track record"
+          title={
+            <>
+              A timeline that <span className="text-gradient-warm">reads like momentum.</span>
+            </>
+          }
+          description="Keep your roles, impact and education current — they appear on your portfolio and generate your résumé."
+          actions={
+            <>
+              <GhostButton onClick={() => {
+                setEditingEducation(null);
+                setEducationForm({ ...emptyEducation });
+                setEducationOpen(true);
+              }}>
+                <GraduationCap className="h-4 w-4" /> Add education
+              </GhostButton>
+              <GlowButton onClick={() => {
+                setEditingExperience(null);
+                setExperienceForm({ ...emptyExperience });
+                setExperienceOpen(true);
+              }}>
+                <Plus className="h-4 w-4" /> Add experience
+              </GlowButton>
+            </>
+          }
+        />
 
-        <div className="relative mb-16">
-          {/* Timeline */}
-          <div className="absolute left-0 md:left-[50%] h-full w-0.5 bg-border"></div>
+        <Tabs defaultValue="experience">
+          <TabsList className="mb-8 rounded-full border border-white/10 bg-white/[0.03] p-1">
+            <TabsTrigger value="experience" className="rounded-full data-[state=active]:bg-white/[0.08]">
+              Experience
+            </TabsTrigger>
+            <TabsTrigger value="education" className="rounded-full data-[state=active]:bg-white/[0.08]">
+              Education
+            </TabsTrigger>
+          </TabsList>
 
-          {/* Experience Items */}
-          <div className="space-y-12">
-            {experiences?.map((experience, index) => (
-              <div key={experience.id} className={`relative ${index % 2 === 0 ? 'md:pr-[50%]' : 'md:pl-[50%] md:ml-auto'}`}>
-                {/* Timeline Dot */}
-                <div className="absolute left-[-8px] md:left-[50%] md:ml-[-8px] top-0 w-4 h-4 rounded-full bg-primary"></div>
-
-                {/* Card */}
-                <Card className={`shadow-md ml-6 md:ml-0 ${index % 2 === 0 ? 'md:mr-6' : 'md:ml-6'}`}>
-                  <CardContent className="p-6">
-                    <div className="flex items-start gap-4">
-                      {/* Logo */}
-                      <div className="hidden md:block w-16 h-16 flex-shrink-0 rounded-md overflow-hidden">
-                        {experience.logoUrl ? (
-                          <img src={experience.logoUrl} alt={experience.company} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="bg-secondary w-full h-full flex items-center justify-center">
-                            <Briefcase className="w-8 h-8 text-muted-foreground" />
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Content */}
-                      <div className="flex-1">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-                          <h2 className="text-xl font-semibold">{experience.position}</h2>
-                          {experience.current && (
-                            <Badge variant="secondary" className="self-start">Current</Badge>
-                          )}
-                        </div>
-                        
-                        <h3 className="text-lg font-medium text-primary">{experience.company}</h3>
-                        
-                        <div className="flex flex-wrap gap-3 my-2 text-sm text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <Calendar className="w-4 h-4" />
-                            <span>
-                              {formatDate(experience.startDate)} - {experience.endDate ? formatDate(experience.endDate) : 'Present'}
-                            </span>
-                          </div>
-                          
-                          <div className="flex items-center gap-1">
-                            <MapPin className="w-4 h-4" />
-                            <span>{experience.location}</span>
-                          </div>
-                        </div>
-                        
-                        <p className="my-3">{experience.description}</p>
-                        
-                        {/* Technologies */}
-                        {experience.technologies && experience.technologies.length > 0 && (
-                          <div className="mt-3">
-                            <div className="flex items-center gap-2 mb-2">
-                              <Tag className="w-4 h-4 text-muted-foreground" />
-                              <span className="text-sm font-medium">Technologies</span>
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                              {experience.technologies.map(tech => (
-                                <Badge key={tech} variant="outline">{tech}</Badge>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        
-                        {/* Associated Projects */}
-                        {experience.projects && experience.projects.length > 0 && (
-                          <Collapsible 
-                            className="mt-4" 
-                            open={expandedId === experience.id}
-                            onOpenChange={() => toggleExpand(experience.id)}
-                          >
-                            <div className="flex justify-between items-center">
-                              <span className="text-sm font-medium">Associated Projects</span>
-                              <CollapsibleTrigger asChild>
-                                <Button variant="ghost" size="sm">
-                                  {expandedId === experience.id ? (
-                                    <ChevronUp className="h-4 w-4" />
-                                  ) : (
-                                    <ChevronDown className="h-4 w-4" />
-                                  )}
-                                </Button>
-                              </CollapsibleTrigger>
-                            </div>
-                            <CollapsibleContent className="pt-2">
-                              <ul className="space-y-2">
-                                {experience.projects.map(project => (
-                                  <li key={project} className="flex items-center gap-2">
-                                    <ExternalLink className="w-4 h-4 text-primary" />
-                                    <span>{project}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </CollapsibleContent>
-                          </Collapsible>
-                        )}
-                        
-                        {/* Testimonials would go here */}
-                      </div>
+          <TabsContent value="experience" className="space-y-5">
+            {loading ? (
+              <div className="h-32 animate-pulse rounded-3xl border border-white/[0.06] bg-white/[0.02]" />
+            ) : experiences.length === 0 ? (
+              <EmptyState
+                icon={Briefcase}
+                title="No roles yet"
+                description="Add your current role first — recruiters scan for it."
+                action={
+                  <GlowButton onClick={() => setExperienceOpen(true)}>
+                    <Plus className="h-4 w-4" /> Add experience
+                  </GlowButton>
+                }
+              />
+            ) : (
+              experiences.map((row, index) => (
+                <Reveal key={row.id} mode="rise" delay={index * 0.04}>
+                  <Panel className="group grid gap-5 p-6 md:grid-cols-[190px_1fr_auto]">
+                    <div>
+                      <p className="mono text-xs text-primary">
+                        {row.start_date?.slice(0, 7)} — {row.end_date?.slice(0, 7) ?? 'present'}
+                      </p>
+                      <p className="mt-2 text-xs text-muted-foreground">{row.employment || 'Full-time'}</p>
+                      {row.location && <p className="mt-1 text-xs text-muted-foreground">{row.location}</p>}
                     </div>
-                  </CardContent>
-                </Card>
-              </div>
-            ))}
-          </div>
-        </div>
+                    <div>
+                      <h3 className="font-display text-lg font-semibold tracking-tight">{row.position}</h3>
+                      <p className="text-sm text-secondary">{row.company}</p>
+                      {row.description && (
+                        <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+                          {row.description}
+                        </p>
+                      )}
+                      {(row.technologies ?? []).length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                          {row.technologies!.map((tech) => (
+                            <Tag key={tech}>{tech}</Tag>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-start gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                      <button
+                        onClick={() => {
+                          setEditingExperience(row);
+                          setExperienceForm({
+                            company: row.company,
+                            position: row.position,
+                            employment: row.employment ?? 'Full-time',
+                            location: row.location ?? '',
+                            start_date: row.start_date?.slice(0, 10) ?? '',
+                            end_date: row.end_date?.slice(0, 10) ?? '',
+                            description: row.description ?? '',
+                            company_url: row.company_url ?? '',
+                            technologies: (row.technologies ?? []).join(', '),
+                          });
+                          setExperienceOpen(true);
+                        }}
+                        className="rounded-lg p-2 text-muted-foreground hover:bg-white/[0.06] hover:text-foreground"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => void removeExperience(row)}
+                        className="rounded-lg p-2 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-300"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </Panel>
+                </Reveal>
+              ))
+            )}
+          </TabsContent>
 
-        {/* Skills Development Timeline Section */}
-        <div className="mt-16">
-          <h2 className="text-2xl font-bold mb-6">Skills Development Timeline</h2>
-          <p className="text-muted-foreground mb-8">How my technical skills have evolved throughout my career</p>
-          
-          <div className="relative pb-12">
-            <div className="absolute left-0 w-full h-0.5 bg-border top-4"></div>
-            <div className="flex justify-between relative">
-              {['2017', '2018', '2019', '2020', '2021', '2022', '2023'].map((year) => (
-                <div key={year} className="flex flex-col items-center">
-                  <div className="w-2 h-2 bg-primary rounded-full mb-2"></div>
-                  <span className="text-sm">{year}</span>
-                </div>
-              ))}
-            </div>
-            
-            <div className="mt-8 space-y-4">
-              <Card>
-                <CardContent className="p-4">
-                  <h3 className="font-semibold">2017 - Basic Web Development</h3>
-                  <p className="text-sm text-muted-foreground">HTML, CSS, JavaScript, jQuery</p>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardContent className="p-4">
-                  <h3 className="font-semibold">2019 - Frontend Frameworks</h3>
-                  <p className="text-sm text-muted-foreground">React, Redux, SASS</p>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardContent className="p-4">
-                  <h3 className="font-semibold">2021 - Advanced Frontend</h3>
-                  <p className="text-sm text-muted-foreground">TypeScript, GraphQL, Testing</p>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardContent className="p-4">
-                  <h3 className="font-semibold">2023 - Full Stack Development</h3>
-                  <p className="text-sm text-muted-foreground">Node.js, SQL, AWS</p>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </div>
+          <TabsContent value="education" className="space-y-5">
+            {loading ? (
+              <div className="h-32 animate-pulse rounded-3xl border border-white/[0.06] bg-white/[0.02]" />
+            ) : education.length === 0 ? (
+              <EmptyState
+                icon={GraduationCap}
+                title="No education added"
+                description="Degrees, bootcamps and certifications all belong here."
+                action={
+                  <GlowButton onClick={() => setEducationOpen(true)}>
+                    <Plus className="h-4 w-4" /> Add education
+                  </GlowButton>
+                }
+              />
+            ) : (
+              education.map((row, index) => (
+                <Reveal key={row.id} mode="rise" delay={index * 0.04}>
+                  <Panel className="group grid gap-5 p-6 md:grid-cols-[190px_1fr_auto]">
+                    <div>
+                      <p className="mono text-xs text-primary">
+                        {row.start_date?.slice(0, 4)} — {row.end_date?.slice(0, 4) ?? 'present'}
+                      </p>
+                      {row.location && <p className="mt-2 text-xs text-muted-foreground">{row.location}</p>}
+                    </div>
+                    <div>
+                      <h3 className="font-display text-lg font-semibold tracking-tight">{row.degree}</h3>
+                      <p className="text-sm text-secondary">{row.institution}</p>
+                      {row.field && <p className="mt-1 text-xs text-muted-foreground">{row.field}</p>}
+                      {row.description && (
+                        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{row.description}</p>
+                      )}
+                    </div>
+                    <div className="flex items-start gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                      <button
+                        onClick={() => {
+                          setEditingEducation(row);
+                          setEducationForm({
+                            institution: row.institution,
+                            degree: row.degree,
+                            field: row.field ?? '',
+                            location: row.location ?? '',
+                            start_date: row.start_date?.slice(0, 10) ?? '',
+                            end_date: row.end_date?.slice(0, 10) ?? '',
+                            description: row.description ?? '',
+                          });
+                          setEducationOpen(true);
+                        }}
+                        className="rounded-lg p-2 text-muted-foreground hover:bg-white/[0.06] hover:text-foreground"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => void removeEducation(row)}
+                        className="rounded-lg p-2 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-300"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </Panel>
+                </Reveal>
+              ))
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
+
+      {/* --------------------------------------------------------- dialogs -- */}
+      <Dialog open={experienceOpen} onOpenChange={setExperienceOpen}>
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto border-white/10 bg-[hsl(240_28%_6%)]">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl">
+              {editingExperience ? 'Edit role' : 'Add role'}
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Lead with impact — what changed because you were there?
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={saveExperience} className="mt-4 space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-2 block text-xs text-muted-foreground">Company</span>
+                <input
+                  className={fieldClasses()}
+                  value={experienceForm.company}
+                  onChange={(event) => setExperienceForm({ ...experienceForm, company: event.target.value })}
+                />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs text-muted-foreground">Role</span>
+                <input
+                  className={fieldClasses()}
+                  value={experienceForm.position}
+                  onChange={(event) => setExperienceForm({ ...experienceForm, position: event.target.value })}
+                />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs text-muted-foreground">Employment</span>
+                <select
+                  className={fieldClasses()}
+                  value={experienceForm.employment}
+                  onChange={(event) => setExperienceForm({ ...experienceForm, employment: event.target.value })}
+                >
+                  {['Full-time', 'Part-time', 'Contract', 'Freelance', 'Internship'].map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs text-muted-foreground">Location</span>
+                <input
+                  className={fieldClasses()}
+                  placeholder="Remote · Lagos"
+                  value={experienceForm.location}
+                  onChange={(event) => setExperienceForm({ ...experienceForm, location: event.target.value })}
+                />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs text-muted-foreground">Start date</span>
+                <input
+                  type="date"
+                  className={fieldClasses()}
+                  value={experienceForm.start_date}
+                  onChange={(event) => setExperienceForm({ ...experienceForm, start_date: event.target.value })}
+                />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs text-muted-foreground">End date (leave blank for current)</span>
+                <input
+                  type="date"
+                  className={fieldClasses()}
+                  value={experienceForm.end_date}
+                  onChange={(event) => setExperienceForm({ ...experienceForm, end_date: event.target.value })}
+                />
+              </label>
+              <label className="block sm:col-span-2">
+                <span className="mb-2 block text-xs text-muted-foreground">Impact</span>
+                <textarea
+                  rows={4}
+                  className={fieldClasses('h-auto py-3')}
+                  value={experienceForm.description}
+                  onChange={(event) => setExperienceForm({ ...experienceForm, description: event.target.value })}
+                  placeholder="Cut checkout latency by 42% by replacing N+1 queries…"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs text-muted-foreground">Company URL</span>
+                <input
+                  className={fieldClasses()}
+                  value={experienceForm.company_url}
+                  onChange={(event) => setExperienceForm({ ...experienceForm, company_url: event.target.value })}
+                />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs text-muted-foreground">Technologies</span>
+                <input
+                  className={fieldClasses()}
+                  placeholder="react, node, postgres"
+                  value={experienceForm.technologies}
+                  onChange={(event) => setExperienceForm({ ...experienceForm, technologies: event.target.value })}
+                />
+              </label>
+            </div>
+            <div className="flex items-center justify-end gap-3 border-t border-white/10 pt-4">
+              <GhostButton type="button" onClick={() => setExperienceOpen(false)}>
+                Cancel
+              </GhostButton>
+              <GlowButton type="submit" disabled={saving}>
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                {editingExperience ? 'Save role' : 'Add role'}
+              </GlowButton>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={educationOpen} onOpenChange={setEducationOpen}>
+        <DialogContent className="max-w-2xl border-white/10 bg-[hsl(240_28%_6%)]">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl">
+              {editingEducation ? 'Edit education' : 'Add education'}
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Degrees, diplomas, bootcamps and certifications.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={saveEducation} className="mt-4 space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-2 block text-xs text-muted-foreground">Institution</span>
+                <input
+                  className={fieldClasses()}
+                  value={educationForm.institution}
+                  onChange={(event) => setEducationForm({ ...educationForm, institution: event.target.value })}
+                />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs text-muted-foreground">Qualification</span>
+                <input
+                  className={fieldClasses()}
+                  placeholder="BSc Computer Science"
+                  value={educationForm.degree}
+                  onChange={(event) => setEducationForm({ ...educationForm, degree: event.target.value })}
+                />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs text-muted-foreground">Field</span>
+                <input
+                  className={fieldClasses()}
+                  value={educationForm.field}
+                  onChange={(event) => setEducationForm({ ...educationForm, field: event.target.value })}
+                />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs text-muted-foreground">Location</span>
+                <input
+                  className={fieldClasses()}
+                  value={educationForm.location}
+                  onChange={(event) => setEducationForm({ ...educationForm, location: event.target.value })}
+                />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs text-muted-foreground">Start date</span>
+                <input
+                  type="date"
+                  className={fieldClasses()}
+                  value={educationForm.start_date}
+                  onChange={(event) => setEducationForm({ ...educationForm, start_date: event.target.value })}
+                />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs text-muted-foreground">End date</span>
+                <input
+                  type="date"
+                  className={fieldClasses()}
+                  value={educationForm.end_date}
+                  onChange={(event) => setEducationForm({ ...educationForm, end_date: event.target.value })}
+                />
+              </label>
+              <label className="block sm:col-span-2">
+                <span className="mb-2 block text-xs text-muted-foreground">Notes</span>
+                <textarea
+                  rows={3}
+                  className={fieldClasses('h-auto py-3')}
+                  value={educationForm.description}
+                  onChange={(event) => setEducationForm({ ...educationForm, description: event.target.value })}
+                />
+              </label>
+            </div>
+            <div className="flex items-center justify-end gap-3 border-t border-white/10 pt-4">
+              <GhostButton type="button" onClick={() => setEducationOpen(false)}>
+                Cancel
+              </GhostButton>
+              <GlowButton type="submit" disabled={saving}>
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                {editingEducation ? 'Save education' : 'Add education'}
+              </GlowButton>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }

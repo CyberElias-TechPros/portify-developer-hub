@@ -1,520 +1,398 @@
-
-import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
-import Layout from "@/components/Layout";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { motion, useScroll, useSpring } from 'framer-motion';
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { 
-  Calendar, 
+  ArrowLeft,
+  BookOpen,
   Clock,
-  Heart, 
-  MessageCircle, 
-  Share2, 
-  Bookmark,
-  ThumbsUp,
-  PartyPopper,
-  Lightbulb,
-  Laugh
-} from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { profile } from "@/data/mock-data";
-import type { BlogPost, Comment } from "@/types/portfolio";
+  Eye,
+  Flag,
+  Link2,
+  Pencil,
+  Share2,
+  Trash2,
+} from 'lucide-react';
+import { toast } from 'sonner';
+import Layout from '@/components/Layout';
+import { EmptyState, GhostButton, GlowButton, Panel, Tag } from '@/components/ui-kit';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Reveal } from '@/components/experience/Reveal';
+import Reactions from '@/components/community/Reactions';
+import Comments from '@/components/community/Comments';
+import FollowButton from '@/components/community/FollowButton';
+import { useAuth } from '@/hooks/useAuth';
+import { api, db } from '@/lib/api/client';
+import { renderMarkdown } from '@/lib/markdown';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import usePageMeta from '@/hooks/usePageMeta';
+
+interface Post {
+  id: string;
+  user_id: string;
+  title: string;
+  slug: string;
+  content: string;
+  excerpt?: string | null;
+  tags?: string[] | null;
+  cover_image_url?: string | null;
+  category?: string | null;
+  series?: string | null;
+  reading_time?: number | null;
+  views?: number | null;
+  likes?: number | null;
+  published: boolean | number;
+  is_public: boolean | number;
+  publish_date?: string | null;
+  created_at: string;
+  updated_at?: string | null;
+  author?: {
+    id: string;
+    full_name?: string | null;
+    username?: string | null;
+    avatar_url?: string | null;
+    title?: string | null;
+    bio?: string | null;
+  } | null;
+}
 
 export default function BlogPost() {
   const { slug } = useParams();
-  const { toast } = useToast();
-  const [post, setPost] = useState<BlogPost | null>(null);
+  const navigate = useNavigate();
+  const { user, isAdmin } = useAuth();
+  const [post, setPost] = useState<Post | null>(null);
+  const [related, setRelated] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [newComment, setNewComment] = useState("");
+  const [missing, setMissing] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [reporting, setReporting] = useState(false);
+  const { scrollYProgress } = useScroll();
+  const progress = useSpring(scrollYProgress, { stiffness: 120, damping: 26 });
 
-  // Mock fetch blog post data
-  useEffect(() => {
-    // This would be replaced with an actual API call
-    setTimeout(() => {
-      setPost({
-        id: "1",
-        title: "Building a Modern Portfolio with React and TypeScript",
-        content: `
-# Building a Modern Portfolio with React and TypeScript
-
-In today's competitive tech landscape, having a standout portfolio is essential. This blog post explores how to build a modern, responsive portfolio website using React and TypeScript.
-
-## Why React and TypeScript?
-
-React's component-based architecture makes it perfect for building modular, reusable UI elements. TypeScript adds static typing, improving code quality and developer experience.
-
-## Key Features to Include
-
-### 1. Responsive Design
-
-Your portfolio should look great on all devices. Use CSS Grid, Flexbox, and media queries to create a responsive layout.
-
-\`\`\`css
-@media (max-width: 768px) {
-  .portfolio-grid {
-    grid-template-columns: 1fr;
-  }
-}
-\`\`\`
-
-### 2. Project Showcase
-
-Highlight your best work with detailed project cards. Include:
-
-- Project title and description
-- Technologies used
-- Links to live demo and source code
-- Screenshots or GIFs
-
-### 3. Skills Section
-
-Visualize your skills using progress bars, charts, or tags to make them easily scannable.
-
-### 4. Dark Mode
-
-Implement a theme toggle for visitors who prefer dark mode:
-
-\`\`\`typescript
-function ThemeToggle() {
-  const [darkMode, setDarkMode] = useState(false);
-
-  useEffect(() => {
-    if (darkMode) {
-      document.body.classList.add('dark-theme');
-    } else {
-      document.body.classList.remove('dark-theme');
-    }
-  }, [darkMode]);
-
-  return (
-    <button onClick={() => setDarkMode(!darkMode)}>
-      {darkMode ? '☀️' : '🌙'}
-    </button>
-  );
-}
-\`\`\`
-
-## Performance Optimization
-
-Don't forget to optimize your portfolio for performance:
-
-1. Lazy load images and components
-2. Minimize bundle size
-3. Use code splitting
-4. Optimize assets
-
-## Deployment Options
-
-Once your portfolio is ready, consider these deployment options:
-
-- Vercel or Netlify for simple, free hosting
-- GitHub Pages if your project is on GitHub
-- AWS or DigitalOcean for more control
-
-## Conclusion
-
-A well-designed portfolio showcases not just your projects, but also your attention to detail and technical abilities. By using React and TypeScript, you create a maintainable codebase that can evolve as you grow as a developer.
-        `,
-        excerpt: "Learn how to build a modern portfolio website using React, TypeScript and best practices for showcasing your work.",
-        slug: "building-modern-portfolio-react-typescript",
-        publishDate: "2023-10-15",
-        tags: ["React", "TypeScript", "Portfolio", "Web Development"],
-        coverImageUrl: "/placeholder.svg",
-        category: "Web Development",
-        series: "Modern Web Development",
-        readingTime: 8,
-        published: true
-      });
+  const load = useCallback(async () => {
+    if (!slug) return;
+    setLoading(true);
+    const { data } = await api.get<Post[]>(
+      `/api/db/blog_posts?f.slug=eq.${encodeURIComponent(slug)}&limit=1&embed=author:profiles(id,full_name,username,avatar_url,title,bio)`
+    );
+    const found = Array.isArray(data) ? data[0] : null;
+    if (!found) {
+      setMissing(true);
       setLoading(false);
-      
-      // Mock comments
-      setComments([
-        {
-          id: "1",
-          user_id: "user1",
-          content_type: "blog_post",
-          content_id: "1",
-          content: "Great article! I've been looking for a guide like this.",
-          parent_id: null,
-          created_at: "2023-10-16T14:32:00Z",
-          updated_at: "2023-10-16T14:32:00Z",
-          user: {
-            id: "user1",
-            full_name: "Sarah Johnson",
-            avatar_url: "/placeholder.svg"
-          }
-        },
-        {
-          id: "2",
-          user_id: "user2",
-          content_type: "blog_post",
-          content_id: "1",
-          content: "Thanks for sharing these insights. The dark mode implementation is particularly helpful.",
-          parent_id: null,
-          created_at: "2023-10-16T16:45:00Z",
-          updated_at: "2023-10-16T16:45:00Z",
-          user: {
-            id: "user2",
-            full_name: "Michael Chen",
-            avatar_url: "/placeholder.svg"
-          }
-        },
-        {
-          id: "3",
-          user_id: "user3",
-          content_type: "blog_post",
-          content_id: "1",
-          content: "I implemented your suggestions and my portfolio looks much better now. One question though - do you have any recommendations for animation libraries that work well with React?",
-          parent_id: null,
-          created_at: "2023-10-17T09:12:00Z",
-          updated_at: "2023-10-17T09:12:00Z",
-          user: {
-            id: "user3",
-            full_name: "Jessica Williams",
-            avatar_url: "/placeholder.svg"
-          }
-        }
-      ]);
-    }, 500);
+      return;
+    }
+    setPost(found);
+    setMissing(false);
+    setLoading(false);
+
+    void api
+      .get<Post[]>(
+        `/api/db/blog_posts?f.published=eq.1&f.is_public=eq.1&f.slug=neq.${encodeURIComponent(slug)}&order=publish_date.desc&limit=3`
+      )
+      .then(({ data: rows }) => setRelated(Array.isArray(rows) ? rows : []));
   }, [slug]);
-  
-  const handleAddComment = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newComment.trim()) return;
-    
-    const comment: Comment = {
-      id: `comment-${Date.now()}`,
-      user_id: "current-user",
-      content_type: "blog_post",
-      content_id: "1",
-      content: newComment,
-      parent_id: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      user: {
-        id: "current-user",
-        full_name: profile.name,
-        avatar_url: profile.avatarUrl
-      }
-    };
-    
-    setComments([...comments, comment]);
-    setNewComment("");
-    
-    toast({
-      title: "Comment Added",
-      description: "Your comment has been posted successfully.",
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  usePageMeta({
+    title: post ? `${post.title} · ${post.author?.full_name || 'Portify'}` : 'Article · Portify',
+    description: post?.excerpt ?? undefined,
+    image: post?.cover_image_url ?? undefined,
+    path: `/blog/${slug ?? ''}`,
+    type: 'article',
+  });
+
+  // Record the read so author analytics and view counters stay honest.
+  useEffect(() => {
+    if (!post) return;
+    let key = sessionStorage.getItem('portify.viewer');
+    if (!key) {
+      key = (crypto as any).randomUUID?.() ?? `v-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      sessionStorage.setItem('portify.viewer', key);
+    }
+    void api.post('/api/analytics/event', {
+      owner_id: post.user_id,
+      event_type: 'page_view',
+      path: `/blog/${post.slug}`,
+      session_key: key,
     });
+  }, [post?.id]);
+
+  const html = useMemo(() => (post ? renderMarkdown(post.content) : ''), [post]);
+  const isOwner = Boolean(user && post && user.id === post.user_id);
+
+  const submitReport = async () => {
+    if (!post || reportReason.trim().length < 3) return;
+    setReporting(true);
+    const { error } = await api.post('/api/social/report', {
+      content_type: 'blog_post',
+      content_id: post.id,
+      reason: reportReason.trim(),
+    });
+    setReporting(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success('Thanks — moderators will take a look');
+    setReportReason('');
+    setReportOpen(false);
   };
-  
+
+  const share = async () => {
+    const url = window.location.href;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: post?.title, url });
+        return;
+      } catch {
+        /* fall through to clipboard */
+      }
+    }
+    await navigator.clipboard.writeText(url);
+    toast.success('Link copied');
+  };
+
+  const remove = async () => {
+    if (!post) return;
+    const { error } = await db.from('blog_posts').delete().eq('id', post.id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success('Article deleted');
+    navigate('/blog');
+  };
+
   if (loading) {
     return (
       <Layout>
-        <div className="container py-12">
-          <div className="space-y-4 animate-pulse">
-            <div className="h-10 bg-muted rounded w-3/4"></div>
-            <div className="h-4 bg-muted rounded w-1/4"></div>
-            <div className="h-4 bg-muted rounded w-full"></div>
-            <div className="h-4 bg-muted rounded w-full"></div>
-            <div className="h-4 bg-muted rounded w-3/4"></div>
-          </div>
+        <div className="mx-auto max-w-3xl space-y-6 px-6 py-20">
+          <div className="h-8 w-40 animate-pulse rounded-full bg-white/[0.05]" />
+          <div className="h-16 animate-pulse rounded-2xl bg-white/[0.05]" />
+          <div className="h-96 animate-pulse rounded-3xl bg-white/[0.03]" />
         </div>
       </Layout>
     );
   }
-  
-  if (!post) {
+
+  if (missing || !post) {
     return (
       <Layout>
-        <div className="container py-12 text-center">
-          <h1 className="text-2xl font-bold mb-4">Post Not Found</h1>
-          <p className="mb-8">The blog post you're looking for doesn't exist or has been removed.</p>
-          <Button asChild>
-            <Link to="/blog">Back to Blog</Link>
-          </Button>
+        <div className="mx-auto max-w-3xl px-6 py-24">
+          <EmptyState
+            icon={BookOpen}
+            title="That article does not exist"
+            description="It may have been unpublished or the link is slightly off."
+            action={
+              <Link to="/blog">
+                <GlowButton>Back to writing</GlowButton>
+              </Link>
+            }
+          />
         </div>
       </Layout>
     );
   }
-  
+
+  const author = post.author;
+  const authorName = author?.full_name || author?.username || 'A Portify member';
+
   return (
-    <Layout>
-      <div className="container py-12 max-w-4xl">
-        {/* Cover Image */}
-        {post.coverImageUrl && (
-          <div className="mb-6 rounded-lg overflow-hidden">
-            <img 
-              src={post.coverImageUrl} 
-              alt={post.title}
-              className="w-full h-[300px] object-cover"
-            />
+    <Layout hideAnimation bare>
+      <motion.div
+        style={{ scaleX: progress }}
+        className="fixed left-0 right-0 top-0 z-[65] h-[2px] origin-left bg-gradient-to-r from-[hsl(var(--violet))] to-[hsl(var(--cyan))]"
+      />
+
+      <article className="relative pb-24 pt-32">
+        <div className="mx-auto max-w-3xl px-6">
+          <Link
+            to="/blog"
+            className="mb-10 inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" /> All writing
+          </Link>
+
+          <Reveal mode="blur">
+            <div className="flex flex-wrap items-center gap-2">
+              {post.category && <Tag tone="primary">{post.category}</Tag>}
+              {post.series && <Tag>{post.series}</Tag>}
+              {!post.published && <Tag tone="warm">draft — only you can see this</Tag>}
+            </div>
+
+            <h1 className="display-lg mt-6">{post.title}</h1>
+
+            {post.excerpt && (
+              <p className="mt-6 text-lg leading-relaxed text-muted-foreground">{post.excerpt}</p>
+            )}
+
+            <div className="mt-8 flex flex-wrap items-center justify-between gap-4 border-y border-white/[0.08] py-5">
+              <div className="flex items-center gap-3">
+                <Avatar className="h-10 w-10 ring-1 ring-white/15">
+                  <AvatarImage src={author?.avatar_url ?? undefined} />
+                  <AvatarFallback className="bg-gradient-to-br from-[hsl(var(--violet))] to-[hsl(var(--cyan))] text-xs font-semibold text-[hsl(240_30%_4%)]">
+                    {authorName.charAt(0)}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  {author?.username ? (
+                    <Link to={`/${author.username}`} className="text-sm font-medium hover:text-primary">
+                      {authorName}
+                    </Link>
+                  ) : (
+                    <p className="text-sm font-medium">{authorName}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    {author?.title || 'Developer'} ·{' '}
+                    {new Date(post.publish_date || post.created_at).toLocaleDateString(undefined, {
+                      month: 'long',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5" /> {post.reading_time ?? 5} min read
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Eye className="h-3.5 w-3.5" /> {(post.views ?? 0).toLocaleString()}
+                </span>
+              </div>
+            </div>
+          </Reveal>
+
+          {post.cover_image_url && (
+            <Reveal mode="scale" className="mt-10">
+              <div className="overflow-hidden rounded-3xl border border-white/10">
+                <img src={post.cover_image_url} alt={post.title} className="w-full object-cover" />
+              </div>
+            </Reveal>
+          )}
+
+          <Reveal className="mt-12">
+            <div className="prose-cinematic" dangerouslySetInnerHTML={{ __html: html }} />
+          </Reveal>
+
+          {(post.tags ?? []).length > 0 && (
+            <div className="mt-12 flex flex-wrap gap-2">
+              {post.tags!.map((tag) => (
+                <Tag key={tag}>#{tag}</Tag>
+              ))}
+            </div>
+          )}
+
+          <div className="mt-10 flex flex-wrap items-center justify-between gap-4 border-t border-white/[0.08] pt-6">
+            <Reactions contentType="blog_post" contentId={post.id} />
+            <div className="flex items-center gap-2">
+              <GhostButton onClick={share}>
+                <Share2 className="h-4 w-4" /> Share
+              </GhostButton>
+              {user && !isOwner && !isAdmin && (
+                <GhostButton onClick={() => setReportOpen(true)}>
+                  <Flag className="h-4 w-4" /> Report
+                </GhostButton>
+              )}
+              {(isOwner || isAdmin) && (
+                <>
+                  <Link to={`/blog/create?edit=${post.id}`}>
+                    <GhostButton>
+                      <Pencil className="h-4 w-4" /> Edit
+                    </GhostButton>
+                  </Link>
+                  <GhostButton onClick={remove} className="border-rose-400/30 text-rose-200 hover:bg-rose-500/10">
+                    <Trash2 className="h-4 w-4" /> Delete
+                  </GhostButton>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* author card */}
+        {author?.username && (
+          <div className="mx-auto mt-16 max-w-3xl px-6">
+            <Panel className="flex flex-col gap-5 p-7 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-4">
+                <Avatar className="h-14 w-14">
+                  <AvatarImage src={author.avatar_url ?? undefined} />
+                  <AvatarFallback className="font-semibold">{authorName.charAt(0)}</AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="font-display text-base font-semibold">{authorName}</p>
+                  <p className="text-xs text-muted-foreground">{author.title || 'Developer'}</p>
+                  {author.bio && <p className="mt-2 line-clamp-2 max-w-md text-xs text-muted-foreground">{author.bio}</p>}
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                {!isOwner && author.id && <FollowButton targetUserId={author.id} />}
+                <Link to={`/${author.username}`}>
+                  <GhostButton>View portfolio</GhostButton>
+                </Link>
+              </div>
+            </Panel>
           </div>
         )}
-        
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold mb-4">{post.title}</h1>
-          
-          <div className="flex flex-wrap items-center text-sm text-muted-foreground gap-4 mb-4">
-            <div className="flex items-center">
-              <Calendar className="w-4 h-4 mr-1" />
-              <span>{new Date(post.publishDate).toLocaleDateString()}</span>
-            </div>
-            <div className="flex items-center">
-              <Clock className="w-4 h-4 mr-1" />
-              <span>{post.readingTime} min read</span>
-            </div>
-            {post.category && (
-              <Badge variant="outline" className="bg-primary/10 text-primary">
-                {post.category}
-              </Badge>
-            )}
-            {post.series && (
-              <span className="text-sm">Series: {post.series}</span>
-            )}
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <Avatar className="h-10 w-10">
-              <AvatarImage src={profile.avatarUrl} alt={profile.name} />
-              <AvatarFallback>{profile.name[0]}</AvatarFallback>
-            </Avatar>
-            <div>
-              <div className="font-medium">{profile.name}</div>
-              <div className="text-xs text-muted-foreground">{profile.title}</div>
+
+        {/* discussion */}
+        <div className="mx-auto mt-16 max-w-3xl px-6">
+          <Comments contentType="blog_post" contentId={post.id} />
+        </div>
+
+        {/* related */}
+        {related.length > 0 && (
+          <div className="mx-auto mt-20 max-w-5xl px-6">
+            <p className="eyebrow mb-6">Keep reading</p>
+            <div className="grid gap-5 md:grid-cols-3">
+              {related.map((item) => (
+                <Link key={item.id} to={`/blog/${item.slug}`}>
+                  <Panel interactive className="h-full p-5">
+                    <p className="mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                      {item.category || 'article'}
+                    </p>
+                    <h3 className="mt-3 font-display text-base font-semibold leading-snug">{item.title}</h3>
+                    <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{item.excerpt}</p>
+                    <p className="mt-4 flex items-center gap-1.5 text-[11px] text-primary">
+                      <Link2 className="h-3 w-3" /> Read article
+                    </p>
+                  </Panel>
+                </Link>
+              ))}
             </div>
           </div>
-        </div>
-        
-        {/* Tags */}
-        <div className="flex flex-wrap gap-2 mb-6">
-          {post.tags.map(tag => (
-            <Badge key={tag} variant="secondary">
-              {tag}
-            </Badge>
-          ))}
-        </div>
-        
-        {/* Content */}
-        <Card className="mb-8">
-          <CardContent className="pt-6">
-            <div className="prose prose-slate dark:prose-invert max-w-none">
-              {post.content.split('\n').map((paragraph, index) => {
-                if (paragraph.startsWith('# ')) {
-                  return <h1 key={index} className="text-3xl font-bold mt-6 mb-4">{paragraph.substring(2)}</h1>;
-                } else if (paragraph.startsWith('## ')) {
-                  return <h2 key={index} className="text-2xl font-bold mt-6 mb-3">{paragraph.substring(3)}</h2>;
-                } else if (paragraph.startsWith('### ')) {
-                  return <h3 key={index} className="text-xl font-bold mt-5 mb-2">{paragraph.substring(4)}</h3>;
-                } else if (paragraph.startsWith('```') && paragraph.endsWith('```')) {
-                  const code = paragraph.substring(paragraph.indexOf('\n') + 1, paragraph.lastIndexOf('\n'));
-                  const language = paragraph.substring(3, paragraph.indexOf('\n'));
-                  return (
-                    <div key={index} className="bg-muted p-4 rounded-md my-4 overflow-x-auto font-mono text-sm">
-                      <div className="text-xs text-muted-foreground mb-2">{language}</div>
-                      <pre>{code}</pre>
-                    </div>
-                  );
-                } else if (paragraph.trim() === '') {
-                  return <div key={index} className="my-4"></div>;
-                } else {
-                  return <p key={index} className="my-4">{paragraph}</p>;
-                }
-              })}
-            </div>
-          </CardContent>
-        </Card>
-        
-        {/* Reactions */}
-        <Card className="mb-8">
-          <CardContent className="flex justify-between items-center py-4">
-            <div className="flex gap-4">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="sm" className="flex gap-1">
-                      <ThumbsUp className="h-4 w-4" />
-                      <span>42</span>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Like</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="sm" className="flex gap-1">
-                      <Heart className="h-4 w-4" />
-                      <span>28</span>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Love</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="sm" className="flex gap-1">
-                      <PartyPopper className="h-4 w-4" />
-                      <span>15</span>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Celebrate</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="sm" className="flex gap-1">
-                      <Lightbulb className="h-4 w-4" />
-                      <span>19</span>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Insightful</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="sm" className="flex gap-1">
-                      <Laugh className="h-4 w-4" />
-                      <span>7</span>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Funny</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-            
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" className="gap-2">
-                <Share2 className="h-4 w-4" />
-                Share
-              </Button>
-              <Button variant="outline" size="sm" className="gap-2">
-                <Bookmark className="h-4 w-4" />
-                Save
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-        
-        {/* Comments */}
-        <div className="space-y-6">
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <MessageCircle className="h-5 w-5" />
-            Comments ({comments.length})
-          </h2>
-          
-          {/* Comment form */}
-          <Card className="mb-6">
-            <CardContent className="pt-6">
-              <form onSubmit={handleAddComment}>
-                <div className="flex gap-4">
-                  <Avatar className="h-10 w-10">
-                    <AvatarImage src={profile.avatarUrl} alt={profile.name} />
-                    <AvatarFallback>{profile.name[0]}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 space-y-2">
-                    <textarea 
-                      className="w-full p-3 rounded-md border focus:ring-2 focus:ring-primary focus:outline-none min-h-[100px]"
-                      placeholder="Add a comment..."
-                      value={newComment}
-                      onChange={(e) => setNewComment(e.target.value)}
-                    ></textarea>
-                    <div className="flex justify-end">
-                      <Button type="submit" disabled={!newComment.trim()}>
-                        Post Comment
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-          
-          {/* Comments list */}
-          <div className="space-y-4">
-            {comments.map(comment => (
-              <Card key={comment.id}>
-                <CardContent className="py-4">
-                  <div className="flex gap-4">
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={comment.user?.avatar_url} alt={comment.user?.full_name} />
-                      <AvatarFallback>{comment.user?.full_name?.[0] || 'U'}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <div className="font-medium">{comment.user?.full_name}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {new Date(comment.created_at).toLocaleDateString()}
-                        </div>
-                      </div>
-                      <div className="mt-2">
-                        {comment.content}
-                      </div>
-                      <div className="flex gap-4 mt-2">
-                        <Button variant="ghost" size="sm">Reply</Button>
-                        <Button variant="ghost" size="sm" className="flex gap-1">
-                          <ThumbsUp className="h-3 w-3" />
-                          <span>Like</span>
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+        )}
+      </article>
+
+      <Dialog open={reportOpen} onOpenChange={setReportOpen}>
+        <DialogContent className="border-white/10 bg-[hsl(240_28%_6%)] sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg">Report this article</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Tell the moderators what is wrong. Reports are logged against this article.
+            </DialogDescription>
+          </DialogHeader>
+          <textarea
+            rows={4}
+            value={reportReason}
+            onChange={(event) => setReportReason(event.target.value)}
+            placeholder="Spam, plagiarism, harmful content…"
+            className="mt-4 w-full rounded-2xl border border-white/12 bg-white/[0.04] px-4 py-3 text-sm outline-none focus:border-primary/60"
+          />
+          <div className="mt-4 flex justify-end gap-3">
+            <GhostButton type="button" onClick={() => setReportOpen(false)}>
+              Cancel
+            </GhostButton>
+            <GlowButton onClick={submitReport} disabled={reporting || reportReason.trim().length < 3}>
+              Send report
+            </GlowButton>
           </div>
-        </div>
-        
-        {/* Related posts */}
-        <div className="mt-12">
-          <h2 className="text-2xl font-bold mb-6">Related Posts</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {[1, 2].map(i => (
-              <Card key={i} className="overflow-hidden">
-                <div className="h-48 overflow-hidden">
-                  <img 
-                    src="/placeholder.svg" 
-                    alt="Related post" 
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <CardContent className="p-4">
-                  <div className="text-sm text-muted-foreground mb-2">
-                    October {10 + i}, 2023
-                  </div>
-                  <h3 className="text-lg font-bold mb-2">
-                    {i === 1 ? "Optimizing React Performance" : "TypeScript Best Practices"}
-                  </h3>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    {i === 1 
-                      ? "Learn how to optimize your React applications for better performance." 
-                      : "Discover TypeScript best practices for maintainable code."}
-                  </p>
-                  <Button variant="link" className="p-0" asChild>
-                    <Link to={`/blog/related-post-${i}`}>Read More</Link>
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </div>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }

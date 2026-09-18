@@ -1,73 +1,88 @@
-# Welcome to your Lovable project
+# Portify — a cinematic portfolio platform on Cloudflare
 
-## Project info
+Portify is a full-stack portfolio platform for developers: claim a handle, publish
+projects, writing and skills, tune the look, and be discovered. The whole product
+runs on Cloudflare — a Workers API over D1 (SQL), R2 (media) and KV (GitHub cache),
+with a React + Vite front end that talks to it through one REST surface.
 
-**URL**: https://lovable.dev/projects/3fac1bc9-7386-4ac4-93ec-7376050fad1c
+## Architecture
 
-## How can I edit this code?
+| Layer | What runs there |
+| --- | --- |
+| Front end | React 18, Vite 5, TypeScript, Tailwind, framer-motion, recharts, shadcn/radix |
+| API | `worker/src` — a hand-rolled router on Cloudflare Workers (no framework) |
+| Data | D1 (`worker/db/schema.sql`, 31 tables) with per-table policies in `worker/src/lib/tables.ts` |
+| Media | R2 bucket `MEDIA` via `/api/media/*` (≤6 MB: png/jpeg/webp/gif/avif/svg/pdf) |
+| Cache | KV for GitHub repo lookups (15 min) |
+| Static | `./dist` served as SPA assets by the Worker, with `/api`, `/sitemap.xml`, `/rss.xml` handled in code |
 
-There are several ways of editing your application.
+Every response uses the envelope `{ data, error }`. The front end's
+`src/lib/api/client.ts` wraps it in a Supabase-style query builder, so pages read
+`db.from('projects').select(...).eq('user_id', id)` and get typed results back.
 
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/3fac1bc9-7386-4ac4-93ec-7376050fad1c) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+## Getting started
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
 npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+npm run db:migrate:local      # create D1 tables locally
+npm run db:seed               # demo users, projects, posts, analytics
+npm run dev:all               # Worker on :8787 + Vite on :8080
 ```
 
-**Edit a file directly in GitHub**
+Open http://localhost:8080. Demo accounts: `elias@portify.dev` / `demo1234`
+(admin) and any seeded developer with `portfolio123`.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### API surface (high level)
 
-**Use GitHub Codespaces**
+- **Auth** — signup, login, logout, sessions, OAuth (`/api/auth/oauth/:provider`),
+  password reset/change, verify email, logout-all
+- **Data** — `/api/db/:table` (GET/POST/PATCH/PUT/DELETE) with filters (`f.col=op.value`),
+  ordering, limits, `select`, `count=exact`, `embed=`, upserts; policies enforce ownership
+- **Profile & app** — `/api/profile`, `/api/profiles/me`, `/api/usernames/*`,
+  `/api/portfolio/:username`, `/api/dashboard`, `/api/analytics/me`,
+  `/api/community/*`, `/api/activity`, `/api/notifications`, `/api/search`,
+  `/api/stats/public`, `/api/account/*`, `/api/onboarding`, `/api/newsletter`
+- **Social** — `/api/contact`, `/api/messages/*`, `/api/social/follow/:id`,
+  `/api/social/reactions`, `/api/social/endorse/*`, `/api/comments`
+- **Media** — `/api/media/upload`, `/api/media/file/*`, list, delete
+- **Integrations** — `/api/integrations/github/repos|import|sync|languages/:username`
+- **Admin** — stats, users, roles, status, audit, content moderation, health, seed
+- **SEO** — `/api/og/:username` (SVG card), `sitemap.xml`, `rss.xml`, `robots.txt`,
+  plus per-page titles, descriptions and social cards applied client-side
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Verification
 
-## What technologies are used for this project?
+```sh
+npm run smoke         # 73 API checks against the running Worker (resets + reseeds D1)
+npm run check:render  # renders all 24 routes in jsdom, flags crashes and blank pages
+npm run check:flows   # drives 9 user journeys through the real UI in jsdom
+npm run typecheck     # app + worker TypeScript projects
+npm run build         # production bundle into ./dist
+```
 
-This project is built with:
+`check:flows` covers: email sign-in, contact submission, commenting, reacting,
+following and endorsing another developer, direct messaging, the full
+sign-up → onboarding → portfolio path, and the testimonial loop
+(visitor writes → owner approves).
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Deploying to Cloudflare
 
-## How can I deploy this project?
+```sh
+npx wrangler d1 create portify-db          # copy the id into wrangler.toml
+npx wrangler r2 bucket create portify-media
+npx wrangler d1 execute portify-db --remote --file=./worker/db/schema.sql
+npx wrangler secret put SESSION_SECRET     # plus RESEND_API_KEY, GITHUB_* if used
+npm run deploy                             # builds ./dist and wrangler deploy
+```
 
-Simply open [Lovable](https://lovable.dev/projects/3fac1bc9-7386-4ac4-93ec-7376050fad1c) and click on Share -> Publish.
+Set `ALLOW_DEV_ROUTES` to `"0"` and `RATE_LIMIT_DISABLED` to `"0"` in production
+(both are already the defaults in `wrangler.toml`; `.dev.vars` relaxes them locally).
 
-## Can I connect a custom domain to my Lovable project?
+## Design system
 
-Yes it is!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+`src/index.css` + `tailwind.config.ts` define the cinematic layer: colour tokens
+(violet/cyan/amber), easing curves, shadow tiers, `.panel`, `.glass`, `.display-*`,
+`.grid-overlay`, `.aurora`, `.noise`, `.sheen`, `.underline-sweep` and prose styles.
+Motion primitives live in `src/components/experience/` (Reveal, ScrollProgress,
+CursorGlow, TiltCard, Background, CommandSearch) and reusable UI in
+`src/components/ui-kit/`.

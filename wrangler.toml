@@ -1,0 +1,86 @@
+#:schema node_modules/wrangler/config-schema.json
+# ============================================================================
+#  Portify Developer Hub — Cloudflare deployment
+#
+#  One command ships the API (Workers) and the app (Workers Assets):
+#      npm run deploy
+#
+#  First-time setup:
+#      npx wrangler d1 create portify-db           # copy database_id below
+#      npx wrangler r2 bucket create portify-media
+#      npm run db:migrate:remote
+# ============================================================================
+
+name = "portify-developer-hub"
+main = "worker/src/index.ts"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+send_metrics = false
+
+# ---- static front-end (Vite build output) ---------------------------------
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+
+# ---- primary datastore ----------------------------------------------------
+[[d1_databases]]
+binding = "DB"
+database_name = "portify-db"
+# `wrangler d1 create portify-db` → paste the returned uuid here.
+# A placeholder is fine for local development (D1 runs fully simulated).
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "worker/db/migrations"
+
+# ---- object storage for avatars, covers and resumes ----------------------
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "portify-media"
+
+# ---- optional KV cache (enables GitHub response caching) -----------------
+# Create with: npx wrangler kv namespace create CACHE
+# [[kv_namespaces]]
+# binding = "CACHE"
+# id = "<namespace id>"
+
+# ---- scheduled maintenance (prunes expired sessions) ---------------------
+[triggers]
+crons = ["17 3 * * *"]
+
+# ---- non-secret configuration --------------------------------------------
+[vars]
+APP_NAME = "portify-api"
+ENVIRONMENT = "production"
+PUBLIC_SIGNUPS = "1"
+# Seeds demo portfolios when the database is empty (idempotent, safe to keep).
+AUTO_SEED = "1"
+# Password-reset links are returned in the API response when no mail provider
+# is configured — turn this off in production once Resend is wired up.
+DEV_RETURN_TOKENS = "1"
+# Unauthenticated access to /api/admin/seed (handy for previews).
+ALLOW_DEV_ROUTES = "0"
+RATE_LIMIT_DISABLED = "0"
+REQUIRE_EMAIL_VERIFICATION = "0"
+
+# ---- local development overrides (not committed) -------------------------
+[env.preview]
+name = "portify-developer-hub-preview"
+
+[env.preview.vars]
+ENVIRONMENT = "preview"
+AUTO_SEED = "1"
+ALLOW_DEV_ROUTES = "1"
+
+# ---- observability --------------------------------------------------------
+[observability]
+enabled = true
+
+# ---- secrets (set with `wrangler secret put <NAME>`) ---------------------
+# SESSION_SECRET              random string used to sign OAuth state
+# GITHUB_CLIENT_ID            GitHub OAuth app for "Continue with GitHub"
+# GITHUB_CLIENT_SECRET
+# GITHUB_TOKEN                raises GitHub API rate limits for imports
+# RESEND_API_KEY              transactional email (verification, resets, contact)
+# MAIL_FROM                   e.g. "Portify <hello@yourdomain.dev>"
+# CONTACT_INBOX               fallback inbox for the public contact form
