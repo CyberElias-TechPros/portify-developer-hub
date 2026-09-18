@@ -30,6 +30,7 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [nextRoute, setNextRoute] = useState('/profile');
 
   useEffect(() => {
     const requested = params.get('mode') as Mode | null;
@@ -37,8 +38,8 @@ export default function Auth() {
   }, [params]);
 
   useEffect(() => {
-    if (user) navigate('/profile', { replace: true });
-  }, [user, navigate]);
+    if (user) navigate(nextRoute, { replace: true });
+  }, [user, navigate, nextRoute]);
 
   const title = useMemo(
     () =>
@@ -74,7 +75,8 @@ export default function Auth() {
         if (signUpError) throw new Error(signUpError.message);
         await refreshProfile();
         toast.success('Studio created — let’s build something');
-        navigate('/profile');
+        setNextRoute('/onboarding');
+        navigate('/onboarding');
       } else if (mode === 'forgot') {
         const { error: resetError } = await resetPassword(email.trim());
         if (resetError) throw new Error(resetError.message);

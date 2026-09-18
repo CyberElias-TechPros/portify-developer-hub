@@ -11,6 +11,8 @@ import Auth from '@/pages/Auth';
 import Contact from '@/pages/Contact';
 import BlogPost from '@/pages/BlogPost';
 import UserPortfolio from '@/pages/UserPortfolio';
+import Onboarding from '@/pages/Onboarding';
+import { setAuthToken } from '@/lib/api/client';
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -77,12 +79,13 @@ function click(el: Element | null | undefined) {
   return true;
 }
 
-export async function runFlows(slug: string, otherUser: string) {
+export async function runFlows(slug: string, otherUser: string, freshEmail = `newcomer.${Date.now()}@portify.dev`) {
   const flows: { name: string; steps: Step[] }[] = [];
 
   // ------------------------------------------------------------- 1. sign in --
   {
     const steps: Step[] = [];
+    setAuthToken(null);
     window.localStorage.removeItem('portify.session.token');
     const view = mount('/auth', '/auth', Auth);
     const email = await waitFor(() => view.container.querySelector<HTMLInputElement>('input[type="email"]'));
@@ -200,6 +203,61 @@ export async function runFlows(slug: string, otherUser: string) {
     });
     view.unmount();
     flows.push({ name: 'follow another developer', steps });
+  }
+
+  // ------------------------------------------- 6. sign up → onboarding wizard --
+  {
+    const steps: Step[] = [];
+    setAuthToken(null);
+    window.localStorage.removeItem('portify.session.token');
+    const auth = mount('/auth', '/auth?mode=register', Auth);
+    await waitFor(() => auth.container.querySelector('input[type="email"]'));
+    const textInputs = [...auth.container.querySelectorAll<HTMLInputElement>('input')].filter(
+      (input) => !['email', 'password', 'checkbox', 'hidden', 'file', 'submit'].includes(input.type)
+    );
+    type(textInputs[0], 'Nia Newcomer');
+    type(auth.container.querySelector<HTMLInputElement>('input[type="email"]'), freshEmail);
+    type(auth.container.querySelector<HTMLInputElement>('input[type="password"]'), 'sup3rsecret');
+    if (textInputs[1]) type(textInputs[1], `nia${Date.now().toString().slice(-6)}`);
+    await wait(150);
+    const submit =
+      auth.container.querySelector<HTMLButtonElement>('form button[type="submit"]') ||
+      findByText(auth.container, 'button', 'create');
+    steps.push({ label: 'submitted registration', ok: click(submit) });
+    const signedUp = await waitFor(() => window.localStorage.getItem('portify.session.token'), 10000);
+    steps.push({ label: 'account created + session stored', ok: Boolean(signedUp) });
+    const redirected = await waitFor(() => (auth.text().includes('REDIRECTED') ? 'redirected' : null), 5000);
+    steps.push({ label: 'sent to onboarding', ok: Boolean(redirected) });
+    auth.unmount();
+
+    const view = mount('/onboarding', '/onboarding', Onboarding);
+    await wait(2500);
+    steps.push({ label: 'onboarding rendered', ok: Boolean(view.container.querySelector('input')), detail: view.text().slice(0, 200) });
+    const nameField = view.container.querySelector<HTMLInputElement>('input[placeholder="Ada Lovelace"]');
+    const titleField = view.container.querySelector<HTMLInputElement>('input[placeholder^="Frontend engineer"]');
+    type(nameField, 'Nia Newcomer');
+    type(titleField, 'Product engineer');
+    click(findByText(view.container, 'button', 'continue'));
+    await wait(1800);
+    steps.push({ label: 'step 1 saved', ok: /Claim your address/i.test(view.text()), detail: view.text().slice(0, 90) });
+
+    const handleField = view.container.querySelector<HTMLInputElement>('input[placeholder="ada"]');
+    type(handleField, `nia${Date.now().toString().slice(-5)}`);
+    await wait(1200);
+    click(findByText(view.container, 'button', 'continue'));
+    await wait(1600);
+    steps.push({ label: 'step 2 saved', ok: /What is this for/i.test(view.text()), detail: view.text().slice(0, 90) });
+
+    click(findByText(view.container, 'button', 'win clients'));
+    click(findByText(view.container, 'button', 'continue'));
+    await wait(1600);
+    steps.push({ label: 'step 3 saved', ok: /Pick your accent/i.test(view.text()), detail: view.text().slice(0, 90) });
+
+    click(findByText(view.container, 'button', 'finish setup'));
+    const done = await waitFor(() => (view.text().includes('REDIRECTED') ? 'redirected to portfolio' : null), 8000);
+    steps.push({ label: 'onboarding completed', ok: Boolean(done) });
+    view.unmount();
+    flows.push({ name: 'sign up and complete onboarding', steps });
   }
 
   return flows;

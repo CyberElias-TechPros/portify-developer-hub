@@ -703,10 +703,18 @@ export function registerWorkspaceRoutes(router: Router<Env>) {
       .parse(await c.body());
 
     const now = new Date().toISOString();
+    // Only real profile columns may be written — anything else (e.g. the UI's
+    // `intent` hint) is acknowledged but never sent to SQLite.
+    const writeable = new Set([
+      'username', 'full_name', 'display_name', 'title', 'bio', 'long_bio', 'location', 'timezone',
+      'pronouns', 'availability', 'email', 'phone', 'website', 'github', 'linkedin', 'twitter',
+      'instagram', 'youtube', 'dribbble', 'resume_url', 'avatar_url', 'cover_url', 'accent',
+    ]);
     const sets: string[] = [];
     const params: unknown[] = [];
     for (const [key, value] of Object.entries(body)) {
-      if (key === 'complete' || value === undefined) continue;
+      if (key === 'complete' || key === 'intent' || value === undefined) continue;
+      if (!writeable.has(key)) continue;
       sets.push(`${key} = ?`);
       params.push(value);
     }

@@ -144,7 +144,7 @@ console.log('\nroute                                     nodes  chars  status');
 for (const row of results) {
   const problems = [];
   if (row.boundary) problems.push('error boundary shown');
-  if (!row.hasMarkup || row.nodes < 5) problems.push('blank output');
+  if (!row.redirected && (!row.hasMarkup || row.nodes < 5)) problems.push('blank output');
   if (problems.length) failures += 1;
   console.log(
     `${row.path.padEnd(40)}  ${String(row.nodes).padStart(5)}  ${String(row.chars).padStart(5)}  ${

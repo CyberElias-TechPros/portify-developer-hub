@@ -21,6 +21,7 @@ import Admin from "./pages/Admin";
 import AdminUsers from "./pages/AdminUsers";
 import AdminAnalytics from "./pages/AdminAnalytics";
 import Messages from "./pages/Messages";
+import Onboarding from "./pages/Onboarding";
 import ResumeEditor from "./pages/ResumeEditor";
 import ThemeCustomizer from "./pages/ThemeCustomizer";
 import PortfolioSections from "./pages/PortfolioSections";
@@ -63,6 +64,7 @@ const App = () => (
               <Route path="/admin/users" element={<AdminUsers />} />
               <Route path="/admin/analytics" element={<AdminAnalytics />} />
               <Route path="/messages" element={<Messages />} />
+              <Route path="/onboarding" element={<Onboarding />} />
               <Route path="/resume" element={<ResumeEditor />} />
               <Route path="/theme" element={<ThemeCustomizer />} />
               <Route path="/sections" element={<PortfolioSections />} />

@@ -22,6 +22,7 @@ import Admin from '@/pages/Admin';
 import AdminUsers from '@/pages/AdminUsers';
 import AdminAnalytics from '@/pages/AdminAnalytics';
 import Messages from '@/pages/Messages';
+import Onboarding from '@/pages/Onboarding';
 import ResumeEditor from '@/pages/ResumeEditor';
 import ThemeCustomizer from '@/pages/ThemeCustomizer';
 import PortfolioSections from '@/pages/PortfolioSections';
@@ -47,6 +48,7 @@ const ROUTES: [pattern: string, entry: string, Component: any][] = [
   ['/admin/users', '/admin/users', AdminUsers],
   ['/admin/analytics', '/admin/analytics', AdminAnalytics],
   ['/messages', '/messages', Messages],
+  ['/onboarding', '/onboarding', Onboarding],
   ['/resume', '/resume', ResumeEditor],
   ['/theme', '/theme', ThemeCustomizer],
   ['/sections', '/sections', PortfolioSections],
@@ -79,7 +81,7 @@ export async function run() {
           <MemoryRouter initialEntries={[entry]}>
             <Routes>
               <Route path={pattern} element={<Component />} />
-              <Route path="*" element={<div data-redirect-sink />} />
+              <Route path="*" element={<div data-redirect-sink>REDIRECTED</div>} />
             </Routes>
           </MemoryRouter>
         </AuthProvider>
@@ -95,6 +97,7 @@ export async function run() {
       nodes: container.querySelectorAll('*').length,
       chars: text.length,
       boundary: text.includes('Something interrupted the render'),
+      redirected: text.includes('REDIRECTED'),
       sample: text.slice(0, 220),
       hasMarkup: html.length > 200,
     });
