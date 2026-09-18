@@ -30,7 +30,7 @@ binding = "DB"
 database_name = "portify-db"
 # `wrangler d1 create portify-db` → paste the returned uuid here.
 # A placeholder is fine for local development (D1 runs fully simulated).
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "50d22f93-12e5-4342-9679-59fdd948fcfc"
 migrations_dir = "worker/db/migrations"
 
 # ---- object storage for avatars, covers and resumes ----------------------
