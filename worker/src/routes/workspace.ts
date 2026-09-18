@@ -101,10 +101,10 @@ export function registerWorkspaceRoutes(router: Router<Env>) {
     const valid = /^[a-zA-Z0-9_-]{3,30}$/.test(username);
     if (!valid) return ok({ username, available: false, reason: 'Use 3–30 letters, numbers, dashes or underscores.' });
     await primeContext(c);
-    const row = await c.env.DB.prepare(`SELECT user_id FROM profiles WHERE lower(username) = ?`)
+    const row = await c.env.DB.prepare(`SELECT id FROM profiles WHERE lower(username) = ?`)
       .bind(username.toLowerCase())
-      .first<{ user_id: string }>();
-    const mine = row && db(c).user?.id === row.user_id;
+      .first<{ id: string }>();
+    const mine = row && db(c).user?.id === row.id;
     return ok({
       username,
       available: !row || !!mine,
@@ -756,6 +756,69 @@ export function registerWorkspaceRoutes(router: Router<Env>) {
         .run();
     }
     return ok({ subscribed: true, message: "You're on the list — welcome aboard." });
+  });
+
+  // -------------------------------------------------------- own profile --
+  const PROFILE_FIELDS = [
+    'username', 'full_name', 'display_name', 'title', 'bio', 'long_bio', 'location', 'timezone', 'pronouns',
+    'availability', 'email', 'phone', 'website', 'github', 'linkedin', 'twitter', 'instagram', 'youtube',
+    'dribbble', 'resume_url', 'avatar_url', 'cover_url', 'accent', 'is_public',
+  ];
+
+  router.patch('/api/profile', async (c) => {
+    await primeContext(c);
+    const user = requireUser(c);
+    const body: any = (await c.body()) ?? {};
+    await ensureProfileExists(c.env, user.id, user.email);
+
+    if (body.username !== undefined) {
+      const candidate = String(body.username).trim();
+      if (!/^[a-zA-Z0-9_-]{3,30}$/.test(candidate)) {
+        throw HttpError.badRequest('Usernames use 3–30 letters, numbers, dashes or underscores');
+      }
+      const taken = await c.env.DB.prepare(`SELECT id FROM profiles WHERE lower(username) = ? AND id <> ?`)
+        .bind(candidate.toLowerCase(), user.id)
+        .first();
+      if (taken) throw HttpError.conflict('That username is already taken');
+      body.username = candidate;
+    }
+
+    const sets: string[] = [];
+    const params: unknown[] = [];
+    for (const [key, value] of Object.entries(body)) {
+      if (!PROFILE_FIELDS.includes(key)) continue;
+      sets.push(`${key} = ?`);
+      params.push(typeof value === 'boolean' ? (value ? 1 : 0) : value === '' ? null : value);
+    }
+    if (!sets.length) throw HttpError.badRequest('Nothing to update');
+
+    await c.env.DB.prepare(`UPDATE profiles SET ${sets.join(', ')}, updated_at = ? WHERE id = ?`)
+      .bind(...params, new Date().toISOString(), user.id)
+      .run();
+
+    if (body.username) {
+      const now = new Date().toISOString();
+      await c.env.DB.prepare(
+        `INSERT INTO usernames (id, user_id, username, created_at, updated_at) VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(username) DO UPDATE SET user_id = excluded.user_id, updated_at = excluded.updated_at`
+      )
+        .bind(uuid(), user.id, body.username, now, now)
+        .run();
+    }
+
+    const row = await c.env.DB.prepare(`SELECT * FROM profiles WHERE id = ?`).bind(user.id).first<any>();
+    return ok({ profile: mapProfile(row) });
+  });
+
+  router.post('/api/profile/avatar', async (c) => {
+    await primeContext(c);
+    const user = requireUser(c);
+    const { url } = z.object({ url: z.string().min(4) }).parse(await c.body());
+    await c.env.DB.prepare(`UPDATE profiles SET avatar_url = ?, updated_at = ? WHERE id = ?`)
+      .bind(url, new Date().toISOString(), user.id)
+      .run();
+    const row = await c.env.DB.prepare(`SELECT * FROM profiles WHERE id = ?`).bind(user.id).first<any>();
+    return ok({ profile: mapProfile(row) });
   });
 
   // ------------------------------------------------------- profile by user --

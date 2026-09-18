@@ -26,3 +26,4 @@ dist-ssr
 # Local worker secrets
 .dev.vars
 .wrangler/
+.render-check

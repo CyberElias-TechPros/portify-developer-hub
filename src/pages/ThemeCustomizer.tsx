@@ -1,475 +1,392 @@
-
-import { useState } from "react";
-import Layout from "@/components/Layout";
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
-  CardTitle 
-} from "@/components/ui/card";
-import { 
-  Tabs, 
-  TabsContent, 
-  TabsList, 
-  TabsTrigger 
-} from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { Check, Loader2, Palette, RotateCcw, Save, Sparkles, Type, Zap } from 'lucide-react';
+import { toast } from 'sonner';
+import Layout from '@/components/Layout';
+import { GhostButton, GlowButton, PageHeader, Panel, SectionLabel, fieldClasses } from '@/components/ui-kit';
+import { useAuth } from '@/hooks/useAuth';
+import { api } from '@/lib/api/client';
+import {
+  DEFAULT_THEME,
+  THEME_PRESETS,
+  applyTheme,
+  loadTheme,
+  normaliseColour,
+  saveTheme,
+  type ThemeTokens,
+} from '@/lib/theme';
 
 export default function ThemeCustomizer() {
-  const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState("colors");
-  const [primaryColor, setPrimaryColor] = useState("#8B5CF6");
-  const [secondaryColor, setSecondaryColor] = useState("#e2e8f0");
-  const [backgroundColor, setBackgroundColor] = useState("#ffffff");
-  const [textColor, setTextColor] = useState("#111827");
-  const [accentColor, setAccentColor] = useState("#f59e0b");
-  const [fontFamily, setFontFamily] = useState("Inter");
-  const [headingFont, setHeadingFont] = useState("Inter");
-  const [bodyFont, setBodyFont] = useState("Inter");
-  const [layout, setLayout] = useState("multi-page");
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const { user } = useAuth();
+  const [tokens, setTokens] = useState<ThemeTokens>(DEFAULT_THEME);
+  const [saving, setSaving] = useState(false);
 
-  const handleSaveTheme = () => {
-    // In a real app, this would save the theme to a database
-    toast({
-      title: "Theme Saved",
-      description: "Your custom theme has been saved successfully.",
-    });
+  useEffect(() => {
+    const stored = loadTheme();
+    setTokens(stored);
+    if (user) {
+      // Prefer the theme saved against the account.
+      void api
+        .get<any[]>('/api/db/themes?f.is_active=eq.1&limit=1')
+        .then(({ data }) => {
+          const row = Array.isArray(data) ? data[0] : null;
+          if (!row?.config) return;
+          try {
+            const parsed = typeof row.config === 'string' ? JSON.parse(row.config) : row.config;
+            const merged = { ...DEFAULT_THEME, ...parsed };
+            setTokens(merged);
+            applyTheme(merged);
+          } catch {
+            /* ignore malformed config */
+          }
+        });
+    }
+  }, [user]);
+
+  const update = (patch: Partial<ThemeTokens>, live = true) => {
+    const next = { ...tokens, ...patch };
+    setTokens(next);
+    if (live) applyTheme(next);
   };
 
-  const handleResetTheme = () => {
-    // Reset to default values
-    setPrimaryColor("#8B5CF6");
-    setSecondaryColor("#e2e8f0");
-    setBackgroundColor("#ffffff");
-    setTextColor("#111827");
-    setAccentColor("#f59e0b");
-    setFontFamily("Inter");
-    setHeadingFont("Inter");
-    setBodyFont("Inter");
-    setLayout("multi-page");
-    setIsDarkMode(false);
-
-    toast({
-      title: "Theme Reset",
-      description: "Theme settings have been reset to defaults.",
-    });
+  const persist = async () => {
+    setSaving(true);
+    saveTheme(tokens);
+    if (user) {
+      const payload = {
+        name: 'Active theme',
+        config: JSON.stringify(tokens),
+        is_active: 1,
+        updated_at: new Date().toISOString(),
+      };
+      const existing = await api.get<any[]>(`/api/db/themes?f.user_id=eq.${user.id}&limit=1`);
+      const row = Array.isArray(existing.data) ? existing.data[0] : null;
+      const { error } = row
+        ? await api.patch(`/api/db/themes?f.id=eq.${row.id}`, payload)
+        : await api.post('/api/db/themes', { rows: { ...payload, user_id: user.id } });
+      if (error) {
+        setSaving(false);
+        toast.error(error.message);
+        return;
+      }
+    }
+    setSaving(false);
+    toast.success('Theme saved — this is how your portfolio renders now');
   };
 
   return (
     <Layout>
-      <div className="container py-12">
-        <div className="flex flex-col md:flex-row gap-8">
-          <div className="w-full md:w-2/3">
-            <h1 className="text-3xl font-bold mb-2">Theme Customizer</h1>
-            <p className="text-muted-foreground mb-6">
-              Personalize your portfolio's appearance with custom colors, fonts, and layout options.
-            </p>
+      <div className="mx-auto max-w-7xl px-6 pb-24">
+        <PageHeader
+          eyebrow="Theme studio"
+          title={
+            <>
+              Tune the <span className="text-gradient">atmosphere.</span>
+            </>
+          }
+          description="Colour, radius and motion are first-class design tokens here — adjust them and watch the whole experience respond instantly."
+          actions={
+            <>
+              <GhostButton
+                onClick={() => {
+                  setTokens(DEFAULT_THEME);
+                  applyTheme(DEFAULT_THEME);
+                  toast.info('Reset to the default look');
+                }}
+              >
+                <RotateCcw className="h-4 w-4" /> Reset
+              </GhostButton>
+              <GlowButton onClick={persist} disabled={saving}>
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Save theme
+              </GlowButton>
+            </>
+          }
+        />
 
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="mb-6">
-                <TabsTrigger value="colors">Colors</TabsTrigger>
-                <TabsTrigger value="typography">Typography</TabsTrigger>
-                <TabsTrigger value="layout">Layout</TabsTrigger>
-                <TabsTrigger value="advanced">Advanced</TabsTrigger>
-              </TabsList>
+        <div className="grid gap-8 lg:grid-cols-[1fr_1.1fr]">
+          {/* ------------------------------------------------------ controls */}
+          <div className="space-y-6">
+            <Panel className="p-7">
+              <SectionLabel>Presets</SectionLabel>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {THEME_PRESETS.map((preset) => {
+                  const active =
+                    tokens.accent === preset.tokens.accent && tokens.secondary === preset.tokens.secondary;
+                  return (
+                    <button
+                      key={preset.id}
+                      onClick={() => update(preset.tokens)}
+                      className={`group flex items-center justify-between rounded-2xl border p-4 text-left transition-colors ${
+                        active ? 'border-primary/50 bg-primary/[0.08]' : 'border-white/10 hover:border-white/25'
+                      }`}
+                    >
+                      <div>
+                        <p className="text-sm font-medium">{preset.name}</p>
+                        <div className="mt-2 flex gap-1.5">
+                          <span
+                            className="h-4 w-4 rounded-full border border-white/20"
+                            style={{ background: `hsl(${preset.tokens.accent})` }}
+                          />
+                          <span
+                            className="h-4 w-4 rounded-full border border-white/20"
+                            style={{ background: `hsl(${preset.tokens.secondary})` }}
+                          />
+                        </div>
+                      </div>
+                      {active && <Check className="h-4 w-4 text-primary" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </Panel>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>
-                    {activeTab === "colors" && "Color Scheme"}
-                    {activeTab === "typography" && "Typography"}
-                    {activeTab === "layout" && "Layout Options"}
-                    {activeTab === "advanced" && "Advanced Settings"}
-                  </CardTitle>
-                  <CardDescription>
-                    {activeTab === "colors" && "Customize the color palette of your portfolio"}
-                    {activeTab === "typography" && "Choose fonts for your portfolio"}
-                    {activeTab === "layout" && "Configure how your portfolio is organized"}
-                    {activeTab === "advanced" && "Additional customization options"}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {/* Colors Tab */}
-                  <TabsContent value="colors" className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Primary Color</label>
-                        <div className="flex gap-2">
-                          <Input
-                            type="color"
-                            value={primaryColor}
-                            onChange={(e) => setPrimaryColor(e.target.value)}
-                            className="w-12 h-10 p-1"
-                          />
-                          <Input
-                            type="text"
-                            value={primaryColor}
-                            onChange={(e) => setPrimaryColor(e.target.value)}
-                          />
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Secondary Color</label>
-                        <div className="flex gap-2">
-                          <Input
-                            type="color"
-                            value={secondaryColor}
-                            onChange={(e) => setSecondaryColor(e.target.value)}
-                            className="w-12 h-10 p-1"
-                          />
-                          <Input
-                            type="text"
-                            value={secondaryColor}
-                            onChange={(e) => setSecondaryColor(e.target.value)}
-                          />
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Background Color</label>
-                        <div className="flex gap-2">
-                          <Input
-                            type="color"
-                            value={backgroundColor}
-                            onChange={(e) => setBackgroundColor(e.target.value)}
-                            className="w-12 h-10 p-1"
-                          />
-                          <Input
-                            type="text"
-                            value={backgroundColor}
-                            onChange={(e) => setBackgroundColor(e.target.value)}
-                          />
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Text Color</label>
-                        <div className="flex gap-2">
-                          <Input
-                            type="color"
-                            value={textColor}
-                            onChange={(e) => setTextColor(e.target.value)}
-                            className="w-12 h-10 p-1"
-                          />
-                          <Input
-                            type="text"
-                            value={textColor}
-                            onChange={(e) => setTextColor(e.target.value)}
-                          />
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Accent Color</label>
-                        <div className="flex gap-2">
-                          <Input
-                            type="color"
-                            value={accentColor}
-                            onChange={(e) => setAccentColor(e.target.value)}
-                            className="w-12 h-10 p-1"
-                          />
-                          <Input
-                            type="text"
-                            value={accentColor}
-                            onChange={(e) => setAccentColor(e.target.value)}
-                          />
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Dark Mode</label>
-                        <div className="flex items-center">
-                          <input 
-                            type="checkbox" 
-                            id="darkMode" 
-                            checked={isDarkMode}
-                            onChange={(e) => setIsDarkMode(e.target.checked)}
-                            className="mr-2"
-                          />
-                          <label htmlFor="darkMode">Enable dark mode by default</label>
-                        </div>
-                      </div>
+            <Panel className="p-7">
+              <SectionLabel>Colours</SectionLabel>
+              <div className="space-y-5">
+                {(
+                  [
+                    { key: 'accent' as const, label: 'Accent', icon: Palette },
+                    { key: 'secondary' as const, label: 'Secondary', icon: Sparkles },
+                  ]
+                ).map(({ key, label, icon: Icon }) => (
+                  <div key={key}>
+                    <div className="mb-3 flex items-center justify-between text-xs text-muted-foreground">
+                      <span className="flex items-center gap-2">
+                        <Icon className="h-3.5 w-3.5" /> {label}
+                      </span>
+                      <span className="mono">{tokens[key]}</span>
                     </div>
-                  </TabsContent>
-
-                  {/* Typography Tab */}
-                  <TabsContent value="typography" className="space-y-6">
-                    <div className="grid grid-cols-1 gap-6">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Font Family</label>
-                        <Select value={fontFamily} onValueChange={setFontFamily}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select font" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Inter">Inter</SelectItem>
-                            <SelectItem value="Roboto">Roboto</SelectItem>
-                            <SelectItem value="Open Sans">Open Sans</SelectItem>
-                            <SelectItem value="Montserrat">Montserrat</SelectItem>
-                            <SelectItem value="Poppins">Poppins</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Heading Font</label>
-                        <Select value={headingFont} onValueChange={setHeadingFont}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select heading font" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Inter">Inter</SelectItem>
-                            <SelectItem value="Roboto">Roboto</SelectItem>
-                            <SelectItem value="Open Sans">Open Sans</SelectItem>
-                            <SelectItem value="Montserrat">Montserrat</SelectItem>
-                            <SelectItem value="Poppins">Poppins</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Body Font</label>
-                        <Select value={bodyFont} onValueChange={setBodyFont}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select body font" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Inter">Inter</SelectItem>
-                            <SelectItem value="Roboto">Roboto</SelectItem>
-                            <SelectItem value="Open Sans">Open Sans</SelectItem>
-                            <SelectItem value="Montserrat">Montserrat</SelectItem>
-                            <SelectItem value="Poppins">Poppins</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Base Font Size</label>
-                        <Select defaultValue="16px">
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select font size" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="14px">14px</SelectItem>
-                            <SelectItem value="16px">16px</SelectItem>
-                            <SelectItem value="18px">18px</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="color"
+                        value={`#${hslTripletToHex(tokens[key])}`}
+                        onChange={(event) => update({ [key]: normaliseColour(event.target.value) } as Partial<ThemeTokens>)}
+                        className="h-10 w-14 cursor-pointer rounded-xl border border-white/15 bg-transparent"
+                      />
+                      <input
+                        className={fieldClasses('font-mono text-xs')}
+                        value={tokens[key]}
+                        onChange={(event) =>
+                          update({ [key]: normaliseColour(event.target.value) } as Partial<ThemeTokens>, false)
+                        }
+                      />
                     </div>
-                  </TabsContent>
+                  </div>
+                ))}
+              </div>
+            </Panel>
 
-                  {/* Layout Tab */}
-                  <TabsContent value="layout" className="space-y-6">
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Layout Type</label>
-                        <Select value={layout} onValueChange={setLayout}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select layout type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="single-page">Single Page</SelectItem>
-                            <SelectItem value="multi-page">Multi Page</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Navigation Style</label>
-                        <Select defaultValue="top">
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select navigation style" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="top">Top Navigation</SelectItem>
-                            <SelectItem value="side">Side Navigation</SelectItem>
-                            <SelectItem value="hamburger">Hamburger Menu</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Content Width</label>
-                        <Select defaultValue="container">
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select content width" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="container">Container (max-width)</SelectItem>
-                            <SelectItem value="full">Full Width</SelectItem>
-                            <SelectItem value="narrow">Narrow</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Sections Order</label>
-                        <p className="text-xs text-muted-foreground mb-2">
-                          Drag and drop sections to reorder (Demo only - not functional)
-                        </p>
-                        <div className="border rounded-md p-4 space-y-2">
-                          <div className="bg-secondary p-2 rounded cursor-move flex justify-between items-center">
-                            Hero Section
-                            <span>≡</span>
-                          </div>
-                          <div className="bg-secondary p-2 rounded cursor-move flex justify-between items-center">
-                            About
-                            <span>≡</span>
-                          </div>
-                          <div className="bg-secondary p-2 rounded cursor-move flex justify-between items-center">
-                            Projects
-                            <span>≡</span>
-                          </div>
-                          <div className="bg-secondary p-2 rounded cursor-move flex justify-between items-center">
-                            Skills
-                            <span>≡</span>
-                          </div>
-                          <div className="bg-secondary p-2 rounded cursor-move flex justify-between items-center">
-                            Experience
-                            <span>≡</span>
-                          </div>
-                          <div className="bg-secondary p-2 rounded cursor-move flex justify-between items-center">
-                            Contact
-                            <span>≡</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </TabsContent>
+            <Panel className="p-7">
+              <SectionLabel>Form & motion</SectionLabel>
+              <div className="space-y-6">
+                <div>
+                  <div className="mb-3 flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Corner radius</span>
+                    <span className="mono">{tokens.radius}rem</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={2}
+                    step={0.05}
+                    value={tokens.radius}
+                    onChange={(event) => update({ radius: Number(event.target.value) })}
+                    className="w-full accent-[hsl(var(--violet))]"
+                  />
+                </div>
 
-                  {/* Advanced Tab */}
-                  <TabsContent value="advanced" className="space-y-6">
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Custom CSS</label>
-                        <textarea
-                          className="w-full h-32 p-2 border rounded-md font-mono text-sm"
-                          placeholder="/* Add your custom CSS here */
-.hero-section {
-  /* Custom styles */
-}"
-                        ></textarea>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Animation Preferences</label>
-                        <div className="flex flex-col space-y-2">
-                          <div className="flex items-center">
-                            <input type="checkbox" id="pageTransitions" defaultChecked className="mr-2" />
-                            <label htmlFor="pageTransitions">Enable page transitions</label>
-                          </div>
-                          <div className="flex items-center">
-                            <input type="checkbox" id="scrollAnimations" defaultChecked className="mr-2" />
-                            <label htmlFor="scrollAnimations">Enable scroll animations</label>
-                          </div>
-                          <div className="flex items-center">
-                            <input type="checkbox" id="hoverEffects" defaultChecked className="mr-2" />
-                            <label htmlFor="hoverEffects">Enable hover effects</label>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Custom Domain</label>
-                        <Input placeholder="yourdomain.com" />
-                        <p className="text-xs text-muted-foreground">
-                          Enter your custom domain to use instead of the default subdomain.
-                        </p>
-                      </div>
-                    </div>
-                  </TabsContent>
-                </CardContent>
-              </Card>
-            </Tabs>
+                <div>
+                  <div className="mb-3 flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Glow strength</span>
+                    <span className="mono">{tokens.glow.toFixed(2)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    value={tokens.glow}
+                    onChange={(event) => update({ glow: Number(event.target.value) })}
+                    className="w-full accent-[hsl(var(--violet))]"
+                  />
+                </div>
 
-            <div className="mt-6 flex justify-between">
-              <Button variant="outline" onClick={handleResetTheme}>
-                Reset to Defaults
-              </Button>
-              <Button onClick={handleSaveTheme}>
-                Save Theme
-              </Button>
-            </div>
+                <div>
+                  <p className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
+                    <Type className="h-3.5 w-3.5" /> Display typography
+                  </p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['sora', 'inter', 'mono'] as const).map((option) => (
+                      <button
+                        key={option}
+                        onClick={() => update({ typography: option })}
+                        className={`rounded-xl border px-3 py-2.5 text-xs capitalize transition-colors ${
+                          tokens.typography === option
+                            ? 'border-primary/50 bg-primary/10 text-primary'
+                            : 'border-white/10 text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        {option}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
+                    <Zap className="h-3.5 w-3.5" /> Motion intensity
+                  </p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['cinematic', 'subtle', 'off'] as const).map((option) => (
+                      <button
+                        key={option}
+                        onClick={() => update({ motion: option })}
+                        className={`rounded-xl border px-3 py-2.5 text-xs capitalize transition-colors ${
+                          tokens.motion === option
+                            ? 'border-primary/50 bg-primary/10 text-primary'
+                            : 'border-white/10 text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        {option}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <label className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm">
+                  Film grain overlay
+                  <input
+                    type="checkbox"
+                    checked={tokens.grain}
+                    onChange={(event) => update({ grain: event.target.checked })}
+                    className="h-4 w-4 accent-[hsl(var(--violet))]"
+                  />
+                </label>
+              </div>
+            </Panel>
           </div>
-          
-          {/* Preview Panel */}
-          <div className="w-full md:w-1/3 sticky top-24 h-fit">
-            <Card>
-              <CardHeader>
-                <CardTitle>Theme Preview</CardTitle>
-                <CardDescription>See how your changes look</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div 
-                  className="border rounded-md p-4 h-96 overflow-hidden"
+
+          {/* ------------------------------------------------------- preview */}
+          <div className="lg:sticky lg:top-24 lg:self-start">
+            <Panel className="overflow-hidden">
+              <div className="relative h-44 overflow-hidden">
+                <div
+                  className="absolute inset-0"
                   style={{
-                    backgroundColor: backgroundColor,
-                    color: textColor,
-                    fontFamily: fontFamily
+                    background: `radial-gradient(80% 140% at 20% 0%, hsl(${tokens.accent} / .45), transparent 60%), radial-gradient(70% 120% at 85% 10%, hsl(${tokens.secondary} / .35), transparent 60%)`,
                   }}
+                />
+                <div className="absolute inset-0 grid-overlay opacity-40" />
+                <div className="relative flex h-full items-end p-6">
+                  <div>
+                    <div
+                      className="mb-3 flex h-11 w-11 items-center justify-center text-sm font-bold"
+                      style={{
+                        borderRadius: `${tokens.radius}rem`,
+                        background: `linear-gradient(135deg, hsl(${tokens.accent}), hsl(${tokens.secondary}))`,
+                        color: 'hsl(240 30% 4%)',
+                      }}
+                    >
+                      P
+                    </div>
+                    <p className="font-display text-lg font-semibold">Preview mode</p>
+                    <p className="text-xs text-muted-foreground">
+                      radius {tokens.radius}rem · {tokens.typography} · {tokens.motion}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4 p-6">
+                <div className="flex flex-wrap gap-2">
+                  <span
+                    className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold"
+                    style={{
+                      borderRadius: `${tokens.radius}rem`,
+                      background: `linear-gradient(90deg, hsl(${tokens.accent}), hsl(${tokens.secondary}))`,
+                      color: 'hsl(240 30% 4%)',
+                      boxShadow: `0 20px 60px -30px hsl(${tokens.accent} / ${tokens.glow + 0.3})`,
+                    }}
+                  >
+                    Primary action
+                  </span>
+                  <span
+                    className="border border-white/12 px-4 py-2 text-xs"
+                    style={{ borderRadius: `${tokens.radius}rem` }}
+                  >
+                    Secondary
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  {[68, 92, 45].map((value, index) => (
+                    <div
+                      key={index}
+                      className="border border-white/[0.08] bg-white/[0.03] p-3"
+                      style={{ borderRadius: `${tokens.radius}rem` }}
+                    >
+                      <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">metric</p>
+                      <p className="mt-1 font-display text-lg font-semibold">{value}%</p>
+                      <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/10">
+                        <motion.div
+                          className="h-full"
+                          style={{
+                            background: `linear-gradient(90deg, hsl(${tokens.accent}), hsl(${tokens.secondary}))`,
+                          }}
+                          initial={{ width: 0 }}
+                          animate={{ width: `${value}%` }}
+                          transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div
+                  className="border border-white/[0.08] bg-white/[0.02] p-4 text-xs leading-relaxed text-muted-foreground"
+                  style={{ borderRadius: `${tokens.radius}rem` }}
                 >
-                  <div 
-                    className="text-xl font-bold mb-2" 
-                    style={{ 
-                      color: primaryColor,
-                      fontFamily: headingFont
-                    }}
-                  >
-                    Sample Heading
-                  </div>
-                  <div 
-                    className="text-base mb-4"
-                    style={{ fontFamily: bodyFont }}
-                  >
-                    This is a preview of how your custom theme will look on your portfolio.
-                  </div>
-                  <div 
-                    className="p-2 rounded-md mb-4 inline-block"
-                    style={{ backgroundColor: primaryColor, color: "#fff" }}
-                  >
-                    Primary Button
-                  </div>
-                  <div 
-                    className="p-2 rounded-md mb-4 inline-block ml-2 border"
-                    style={{ 
-                      backgroundColor: secondaryColor,
-                      borderColor: primaryColor
-                    }}
-                  >
-                    Secondary Button
-                  </div>
-                  <div 
-                    className="p-4 rounded-md"
-                    style={{ backgroundColor: secondaryColor }}
-                  >
-                    <div style={{ color: textColor }}>Card Component</div>
-                    <div 
-                      className="h-2 rounded-full mt-2"
-                      style={{ backgroundColor: accentColor }}
-                    ></div>
-                  </div>
+                  Every surface in the app — cards, dialogs, meters, navigation — reads from the same token set, so one
+                  change here propagates everywhere.
                 </div>
-                <div className="mt-4 text-center text-sm text-muted-foreground">
-                  This preview updates as you make changes.
-                </div>
-              </CardContent>
-            </Card>
+
+                {user && (
+                  <p className="text-[11px] text-muted-foreground">
+                    Saved themes are stored on your account and applied the next time you sign in.
+                  </p>
+                )}
+              </div>
+            </Panel>
+
+            <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
+              <Link to="/sections" className="hover:text-foreground underline-sweep">
+                Manage portfolio sections
+              </Link>
+              <span className="mono">theme tokens persisted to d1</span>
+            </div>
           </div>
         </div>
       </div>
     </Layout>
   );
+}
+
+/** "#rrggbb" for an <input type="color"> from an hsl triplet. */
+function hslTripletToHex(triplet: string): string {
+  const match = triplet.match(/([\d.]+)\s+([\d.]+)%\s+([\d.]+)%/);
+  if (!match) return '7c5cff';
+  const h = Number(match[1]) / 360;
+  const s = Number(match[2]) / 100;
+  const l = Number(match[3]) / 100;
+  const a = s * Math.min(l, 1 - l);
+  const channel = (n: number) => {
+    const k = (n + h * 12) % 12;
+    const value = l - a * Math.max(-1, Math.min(k - 3, Math.min(9 - k, 1)));
+    return Math.round(255 * value)
+      .toString(16)
+      .padStart(2, '0');
+  };
+  return `${channel(0)}${channel(8)}${channel(4)}`;
 }

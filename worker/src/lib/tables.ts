@@ -158,6 +158,10 @@ export const TABLES: Record<string, TablePolicy> = {
         title: row.title,
       });
     },
+    relations: {
+      author: { table: 'profiles', localKey: 'user_id', foreignKey: 'id', columns: ['id', 'full_name', 'username', 'avatar_url', 'title'] },
+      owner: { table: 'profiles', localKey: 'user_id', foreignKey: 'id', columns: ['id', 'full_name', 'username', 'avatar_url', 'title'] },
+    },
   },
 
   skills: {
@@ -259,6 +263,10 @@ export const TABLES: Record<string, TablePolicy> = {
       await pushActivity(ctx, row.user_id, ctx.user?.id ?? row.user_id, 'blog_post_create', 'blog_post', row.id, {
         title: row.title,
       });
+    },
+    relations: {
+      author: { table: 'profiles', localKey: 'user_id', foreignKey: 'id', columns: ['id', 'full_name', 'username', 'avatar_url', 'title', 'bio'] },
+      owner: { table: 'profiles', localKey: 'user_id', foreignKey: 'id', columns: ['id', 'full_name', 'username', 'avatar_url', 'title', 'bio'] },
     },
   },
 

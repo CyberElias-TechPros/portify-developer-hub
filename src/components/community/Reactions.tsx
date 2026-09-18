@@ -1,161 +1,97 @@
-
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { Reaction } from '@/types/portfolio';
+import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import { Heart, Lightbulb, Laugh, Trophy, ThumbsUp } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
+import { api } from '@/lib/api/client';
+import { useAuth } from '@/hooks/useAuth';
+
+const REACTION_TYPES = ['like', 'love', 'celebrate', 'insightful', 'funny'] as const;
+type ReactionType = (typeof REACTION_TYPES)[number];
+
+const meta: Record<ReactionType, { icon: any; label: string; ring: string }> = {
+  like: { icon: ThumbsUp, label: 'Like', ring: 'text-sky-300 border-sky-400/40 bg-sky-400/10' },
+  love: { icon: Heart, label: 'Love', ring: 'text-rose-300 border-rose-400/40 bg-rose-400/10' },
+  celebrate: { icon: Trophy, label: 'Celebrate', ring: 'text-amber-300 border-amber-400/40 bg-amber-400/10' },
+  insightful: { icon: Lightbulb, label: 'Insightful', ring: 'text-cyan-300 border-cyan-400/40 bg-cyan-400/10' },
+  funny: { icon: Laugh, label: 'Funny', ring: 'text-violet-300 border-violet-400/40 bg-violet-400/10' },
+};
 
 interface ReactionsProps {
-  contentType: 'project' | 'blog_post' | 'comment';
+  contentType: 'project' | 'blog_post' | 'comment' | 'profile';
   contentId: string;
+  compact?: boolean;
+  className?: string;
 }
 
-const reactionIcons = {
-  like: ThumbsUp,
-  love: Heart,
-  celebrate: Trophy,
-  insightful: Lightbulb,
-  funny: Laugh
-};
-
-const reactionLabels = {
-  like: 'Like',
-  love: 'Love',
-  celebrate: 'Celebrate',
-  insightful: 'Insightful',
-  funny: 'Funny'
-};
-
-export default function Reactions({ contentType, contentId }: ReactionsProps) {
+export default function Reactions({ contentType, contentId, compact = false, className = '' }: ReactionsProps) {
   const { user } = useAuth();
-  const { toast } = useToast();
-  const [reactions, setReactions] = useState<Record<string, Reaction[]>>({});
-  const [userReactions, setUserReactions] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+  const [counts, setCounts] = useState<Record<string, number>>({});
+  const [mine, setMine] = useState<string[]>([]);
+  const [pending, setPending] = useState<ReactionType | null>(null);
 
   useEffect(() => {
-    fetchReactions();
-  }, [contentType, contentId]);
-
-  const fetchReactions = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('reactions')
-        .select('*')
-        .eq('content_type', contentType)
-        .eq('content_id', contentId);
-
-      if (error) throw error;
-
-      // Group reactions by type
-      const groupedReactions = data.reduce((acc, reaction) => {
-        const typedReaction: Reaction = {
-          ...reaction,
-          content_type: reaction.content_type as 'project' | 'blog_post' | 'comment',
-          reaction_type: reaction.reaction_type as 'like' | 'love' | 'celebrate' | 'insightful' | 'funny'
-        };
-        
-        if (!acc[reaction.reaction_type]) {
-          acc[reaction.reaction_type] = [];
+    if (!contentId) return;
+    void api
+      .get<{ counts?: Record<string, number>; summary?: Record<string, number>; mine: string[] }>(
+        `/api/social/reactions?content_type=${contentType}&content_id=${encodeURIComponent(contentId)}`
+      )
+      .then(({ data }) => {
+        if (data) {
+          setCounts(data.counts ?? data.summary ?? {});
+          setMine(data.mine ?? []);
         }
-        acc[reaction.reaction_type].push(typedReaction);
-        return acc;
-      }, {} as Record<string, Reaction[]>);
-
-      setReactions(groupedReactions);
-
-      // Track user's reactions
-      if (user) {
-        const userReactionTypes = new Set(
-          data
-            .filter(r => r.user_id === user.id)
-            .map(r => r.reaction_type)
-        );
-        setUserReactions(userReactionTypes);
-      }
-    } catch (error: any) {
-      console.error('Error fetching reactions:', error);
-    }
-  };
-
-  const toggleReaction = async (reactionType: string) => {
-    if (!user) {
-      toast({
-        title: 'Authentication required',
-        description: 'Please sign in to react.',
-        variant: 'destructive'
       });
+  }, [contentType, contentId, user?.id]);
+
+  const toggle = async (type: ReactionType) => {
+    if (!user) {
+      navigate('/auth');
       return;
     }
+    setPending(type);
+    const optimistic = mine.includes(type);
+    setCounts((current) => ({ ...current, [type]: Math.max((current[type] ?? 0) + (optimistic ? -1 : 1), 0) }));
+    setMine((current) => (optimistic ? current.filter((item) => item !== type) : [...current, type]));
 
-    setLoading(true);
-    try {
-      if (userReactions.has(reactionType)) {
-        // Remove reaction
-        const { error } = await supabase
-          .from('reactions')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('content_type', contentType)
-          .eq('content_id', contentId)
-          .eq('reaction_type', reactionType);
+    const { data, error } = await api.post<{ counts?: Record<string, number>; summary?: Record<string, number>; mine: string[] }>(
+      '/api/social/reactions/toggle',
+      { content_type: contentType, content_id: contentId, reaction_type: type }
+    );
+    setPending(null);
 
-        if (error) throw error;
-
-        setUserReactions(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(reactionType);
-          return newSet;
-        });
-      } else {
-        // Add reaction
-        const { error } = await supabase
-          .from('reactions')
-          .insert({
-            user_id: user.id,
-            content_type: contentType,
-            content_id: contentId,
-            reaction_type: reactionType
-          });
-
-        if (error) throw error;
-
-        setUserReactions(prev => new Set([...prev, reactionType]));
-      }
-
-      fetchReactions();
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: 'Failed to update reaction.',
-        variant: 'destructive'
-      });
-    } finally {
-      setLoading(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    if (data) {
+      setCounts(data.counts ?? data.summary ?? {});
+      setMine(data.mine ?? []);
     }
   };
 
   return (
-    <div className="flex items-center space-x-2">
-      {Object.entries(reactionIcons).map(([type, Icon]) => {
-        const count = reactions[type]?.length || 0;
-        const isActive = userReactions.has(type);
-
+    <div className={`flex flex-wrap items-center gap-2 ${className}`}>
+      {REACTION_TYPES.map((type) => {
+        const { icon: Icon, label, ring } = meta[type];
+        const active = mine.includes(type);
+        const count = counts[type] ?? 0;
+        if (compact && count === 0 && !active) return null;
         return (
-          <Button
+          <motion.button
             key={type}
-            variant={isActive ? "default" : "outline"}
-            size="sm"
-            onClick={() => toggleReaction(type)}
-            disabled={loading}
-            className="h-8 px-3"
+            whileTap={{ scale: 0.92 }}
+            onClick={() => void toggle(type)}
+            disabled={pending === type}
+            title={label}
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-all duration-300 ${
+              active ? ring : 'border-white/10 bg-white/[0.03] text-muted-foreground hover:border-white/25'
+            }`}
           >
-            <Icon className={`h-4 w-4 ${count > 0 ? 'mr-1' : ''}`} />
-            {count > 0 && <span className="text-xs">{count}</span>}
-            <span className="sr-only">{reactionLabels[type as keyof typeof reactionLabels]}</span>
-          </Button>
+            <Icon className="h-3.5 w-3.5" />
+            {count > 0 && <span className="mono">{count}</span>}
+          </motion.button>
         );
       })}
     </div>

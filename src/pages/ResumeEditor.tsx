@@ -1,711 +1,449 @@
-
-import { useState } from "react";
-import Layout from "@/components/Layout";
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { useToast } from "@/hooks/use-toast";
-import { 
-  Download, 
-  Plus, 
-  Trash, 
-  Move, 
-  Eye,
+  Download,
+  FileText,
+  Loader2,
+  Plus,
+  Printer,
   Save,
-  FileDown,
-  FilePlus,
-  Copy
-} from "lucide-react";
+  Sparkles,
+  Trash2,
+} from 'lucide-react';
+import { toast } from 'sonner';
+import Layout from '@/components/Layout';
+import { EmptyState, GhostButton, GlowButton, PageHeader, Panel, SectionLabel, fieldClasses } from '@/components/ui-kit';
+import { useAuth } from '@/hooks/useAuth';
+import { api } from '@/lib/api/client';
+
+interface ResumeContent {
+  summary: string;
+  highlights: string[];
+  sections: {
+    experience: boolean;
+    education: boolean;
+    skills: boolean;
+    projects: boolean;
+    writing: boolean;
+  };
+}
+
+const defaultContent: ResumeContent = {
+  summary: '',
+  highlights: [],
+  sections: { experience: true, education: true, skills: true, projects: true, writing: false },
+};
 
 export default function ResumeEditor() {
-  const { toast } = useToast();
-  const [activeTemplate, setActiveTemplate] = useState("modern");
-  const [activeTab, setActiveTab] = useState("content");
-  const [resumeName, setResumeName] = useState("My Resume");
-  
-  const handleSave = () => {
-    toast({
-      title: "Resume Saved",
-      description: "Your resume has been saved successfully",
+  const { user, profile } = useAuth();
+  const [resumeId, setResumeId] = useState<string | null>(null);
+  const [name, setName] = useState('My Resume');
+  const [template, setTemplate] = useState<'modern' | 'classic' | 'compact'>('modern');
+  const [content, setContent] = useState<ResumeContent>(defaultContent);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [highlightDraft, setHighlightDraft] = useState('');
+  const [data, setData] = useState<{
+    projects: any[];
+    skills: any[];
+    experiences: any[];
+    education: any[];
+    posts: any[];
+  }>({ projects: [], skills: [], experiences: [], education: [], posts: [] });
+
+  const load = useCallback(async () => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const [resumeResult, projects, skills, experiences, education, posts] = await Promise.all([
+      api.get<any[]>(`/api/db/resumes?f.user_id=eq.${user.id}&limit=1`),
+      api.get<any[]>(`/api/db/projects?f.user_id=eq.${user.id}&order=featured.desc&limit=20`),
+      api.get<any[]>(`/api/db/skills?f.user_id=eq.${user.id}&order=proficiency.desc&limit=24`),
+      api.get<any[]>(`/api/db/experiences?f.user_id=eq.${user.id}&order=start_date.desc&limit=10`),
+      api.get<any[]>(`/api/db/education?f.user_id=eq.${user.id}&order=start_date.desc&limit=6`),
+      api.get<any[]>(`/api/db/blog_posts?f.user_id=eq.${user.id}&f.published=eq.1&limit=6`),
+    ]);
+
+    const resume = Array.isArray(resumeResult.data) ? resumeResult.data[0] : null;
+    if (resume) {
+      setResumeId(resume.id);
+      setName(resume.name ?? 'My Resume');
+      setTemplate((resume.template as any) ?? 'modern');
+      try {
+        const parsed = typeof resume.content === 'string' ? JSON.parse(resume.content) : resume.content;
+        setContent({ ...defaultContent, ...parsed, sections: { ...defaultContent.sections, ...(parsed?.sections ?? {}) } });
+      } catch {
+        setContent(defaultContent);
+      }
+    }
+
+    setData({
+      projects: Array.isArray(projects.data) ? projects.data : [],
+      skills: Array.isArray(skills.data) ? skills.data : [],
+      experiences: Array.isArray(experiences.data) ? experiences.data : [],
+      education: Array.isArray(education.data) ? education.data : [],
+      posts: Array.isArray(posts.data) ? posts.data : [],
     });
+    setLoading(false);
+  }, [user]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const save = async () => {
+    if (!user) return;
+    setSaving(true);
+    const payload = {
+      name,
+      template,
+      content: JSON.stringify(content),
+      is_default: 1,
+      updated_at: new Date().toISOString(),
+    };
+    const { error } = resumeId
+      ? await api.patch(`/api/db/resumes?f.id=eq.${resumeId}`, payload)
+      : await api.post('/api/db/resumes', { rows: { ...payload, user_id: user.id } });
+    setSaving(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success('Résumé saved');
+    void load();
   };
-  
-  const handleDownload = () => {
-    toast({
-      title: "Resume Downloaded",
-      description: "Your resume has been downloaded as a PDF",
-    });
+
+  const downloadJson = () => {
+    const payload = {
+      profile: {
+        name: profile?.full_name,
+        title: profile?.title,
+        email: profile?.email,
+        location: profile?.location,
+        website: profile?.website,
+        github: profile?.github,
+        linkedin: profile?.linkedin,
+      },
+      summary: content.summary,
+      highlights: content.highlights,
+      experience: data.experiences,
+      education: data.education,
+      skills: data.skills,
+      projects: data.projects.map((project) => ({
+        title: project.title,
+        description: project.description,
+        url: project.repo_url || project.demo_url,
+        tags: project.tags,
+      })),
+      writing: data.posts.map((post) => ({ title: post.title, url: `/blog/${post.slug}` })),
+      generated_at: new Date().toISOString(),
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${(profile?.username || 'resume').toLowerCase()}-resume.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success('Résumé data downloaded');
   };
+
+  const previewSections = useMemo(
+    () =>
+      [
+        { key: 'experience', title: 'Experience', items: data.experiences.map((row) => ({
+          title: `${row.position} · ${row.company}`,
+          meta: `${row.start_date?.slice(0, 7)} — ${row.end_date?.slice(0, 7) ?? 'present'}`,
+          body: row.description,
+        })) },
+        { key: 'education', title: 'Education', items: data.education.map((row) => ({
+          title: `${row.degree} · ${row.institution}`,
+          meta: `${row.start_date?.slice(0, 4)} — ${row.end_date?.slice(0, 4) ?? 'present'}`,
+          body: row.description,
+        })) },
+        { key: 'projects', title: 'Selected projects', items: data.projects.slice(0, 4).map((row) => ({
+          title: row.title,
+          meta: (row.tags ?? []).slice(0, 4).join(' · '),
+          body: row.description,
+        })) },
+        { key: 'writing', title: 'Writing', items: data.posts.map((row) => ({
+          title: row.title,
+          meta: row.category ?? 'article',
+          body: row.excerpt,
+        })) },
+      ].filter((section) => (content.sections as any)[section.key] && section.items.length > 0),
+    [data, content.sections]
+  );
+
+  if (!user) {
+    return (
+      <Layout>
+        <div className="mx-auto max-w-3xl px-6 py-24">
+          <EmptyState
+            icon={FileText}
+            title="Sign in to build your résumé"
+            description="Your résumé is generated from the same data as your portfolio — no double entry."
+            action={
+              <Link to="/auth">
+                <GlowButton>Sign in</GlowButton>
+              </Link>
+            }
+          />
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
-      <div className="container py-12">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold">Resume Builder</h1>
-            <p className="text-muted-foreground">Create and customize your professional resume</p>
-          </div>
-          <div className="flex space-x-2">
-            <Button variant="outline" onClick={handleSave}>
-              <Save className="mr-2 h-4 w-4" /> Save
-            </Button>
-            <Button onClick={handleDownload}>
-              <Download className="mr-2 h-4 w-4" /> Download PDF
-            </Button>
-          </div>
-        </div>
-        
-        <div className="flex flex-col lg:flex-row gap-8">
-          {/* Editor Panel */}
-          <div className="w-full lg:w-2/3 space-y-6">
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex justify-between items-center">
+      <div className="mx-auto max-w-7xl px-6 pb-24">
+        <PageHeader
+          eyebrow="Résumé"
+          title={
+            <>
+              One dataset, <span className="text-gradient">two audiences.</span>
+            </>
+          }
+          description="Your portfolio convinces the curious; the résumé convinces the recruiter. Both are generated from the same records."
+          actions={
+            <>
+              <GhostButton onClick={downloadJson}>
+                <Download className="h-4 w-4" /> Export data
+              </GhostButton>
+              <GhostButton onClick={() => window.print()}>
+                <Printer className="h-4 w-4" /> Print / PDF
+              </GhostButton>
+              <GlowButton onClick={save} disabled={saving}>
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Save résumé
+              </GlowButton>
+            </>
+          }
+        />
+
+        {loading ? (
+          <div className="h-96 animate-pulse rounded-3xl border border-white/[0.06] bg-white/[0.02]" />
+        ) : (
+          <div className="grid gap-8 lg:grid-cols-[1fr_1.2fr]">
+            {/* ----------------------------------------------------- editor */}
+            <div className="space-y-6 print:hidden">
+              <Panel className="p-7">
+                <SectionLabel>Basics</SectionLabel>
+                <div className="space-y-4">
+                  <label className="block">
+                    <span className="mb-2 block text-xs text-muted-foreground">Document name</span>
+                    <input className={fieldClasses()} value={name} onChange={(event) => setName(event.target.value)} />
+                  </label>
+                  <label className="block">
+                    <span className="mb-2 block text-xs text-muted-foreground">Professional summary</span>
+                    <textarea
+                      rows={4}
+                      className={fieldClasses('h-auto py-3')}
+                      placeholder="Product-minded engineer with 6 years shipping design systems and edge infrastructure…"
+                      value={content.summary}
+                      onChange={(event) => setContent({ ...content, summary: event.target.value })}
+                    />
+                  </label>
                   <div>
-                    <CardTitle>Resume Settings</CardTitle>
-                    <CardDescription>Configure your resume</CardDescription>
-                  </div>
-                  <Select defaultValue={resumeName} onValueChange={setResumeName}>
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="Select resume" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="My Resume">My Resume</SelectItem>
-                      <SelectItem value="Developer Resume">Developer Resume</SelectItem>
-                      <SelectItem value="Designer Resume">Designer Resume</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="flex space-x-2 mb-4">
-                  <Input 
-                    value={resumeName} 
-                    onChange={(e) => setResumeName(e.target.value)}
-                    placeholder="Resume name" 
-                  />
-                  <Button variant="outline" size="icon">
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                  <Button variant="outline" size="icon">
-                    <FilePlus className="h-4 w-4" />
-                  </Button>
-                </div>
-                
-                <Tabs value={activeTab} onValueChange={setActiveTab}>
-                  <TabsList className="grid grid-cols-4 mb-6">
-                    <TabsTrigger value="content">Content</TabsTrigger>
-                    <TabsTrigger value="layout">Layout</TabsTrigger>
-                    <TabsTrigger value="styling">Styling</TabsTrigger>
-                    <TabsTrigger value="history">History</TabsTrigger>
-                  </TabsList>
-                  
-                  <TabsContent value="content" className="space-y-6">
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="text-lg">Personal Information</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">Full Name</label>
-                            <Input defaultValue="John Doe" />
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">Job Title</label>
-                            <Input defaultValue="Full Stack Developer" />
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">Email</label>
-                            <Input defaultValue="john@example.com" />
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">Phone</label>
-                            <Input defaultValue="(123) 456-7890" />
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">Location</label>
-                            <Input defaultValue="San Francisco, CA" />
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">Website</label>
-                            <Input defaultValue="https://johndoe.com" />
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                    
-                    <Card>
-                      <CardHeader className="flex flex-row items-center justify-between">
-                        <CardTitle className="text-lg">Work Experience</CardTitle>
-                        <Button size="sm">
-                          <Plus className="h-4 w-4 mr-1" /> Add
-                        </Button>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-4">
-                          <div className="p-3 border rounded-md">
-                            <div className="flex justify-between items-center mb-2">
-                              <h4 className="font-medium">Senior Frontend Developer</h4>
-                              <div className="flex space-x-1">
-                                <Button variant="ghost" size="sm">
-                                  <Move className="h-4 w-4" />
-                                </Button>
-                                <Button variant="ghost" size="sm">
-                                  <Trash className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-3">
-                              <div className="space-y-1">
-                                <label className="text-xs">Company</label>
-                                <Input size={1} defaultValue="Tech Innovators" />
-                              </div>
-                              <div className="space-y-1">
-                                <label className="text-xs">Location</label>
-                                <Input size={1} defaultValue="San Francisco, CA" />
-                              </div>
-                              <div className="space-y-1">
-                                <label className="text-xs">Start Date</label>
-                                <Input size={1} defaultValue="Jan 2021" />
-                              </div>
-                              <div className="space-y-1">
-                                <label className="text-xs">End Date</label>
-                                <Input size={1} defaultValue="Present" />
-                              </div>
-                              <div className="col-span-2 space-y-1">
-                                <label className="text-xs">Description</label>
-                                <textarea 
-                                  className="w-full border rounded-md p-2 text-sm h-24" 
-                                  defaultValue="Led development of enterprise web applications using React, TypeScript, and GraphQL. Implemented CI/CD pipelines and improved performance by 35%."
-                                ></textarea>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="p-3 border rounded-md">
-                            <div className="flex justify-between items-center mb-2">
-                              <h4 className="font-medium">Frontend Developer</h4>
-                              <div className="flex space-x-1">
-                                <Button variant="ghost" size="sm">
-                                  <Move className="h-4 w-4" />
-                                </Button>
-                                <Button variant="ghost" size="sm">
-                                  <Trash className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-3">
-                              <div className="space-y-1">
-                                <label className="text-xs">Company</label>
-                                <Input size={1} defaultValue="Digital Solutions Inc" />
-                              </div>
-                              <div className="space-y-1">
-                                <label className="text-xs">Location</label>
-                                <Input size={1} defaultValue="Boston, MA" />
-                              </div>
-                              <div className="space-y-1">
-                                <label className="text-xs">Start Date</label>
-                                <Input size={1} defaultValue="Mar 2019" />
-                              </div>
-                              <div className="space-y-1">
-                                <label className="text-xs">End Date</label>
-                                <Input size={1} defaultValue="Dec 2020" />
-                              </div>
-                              <div className="col-span-2 space-y-1">
-                                <label className="text-xs">Description</label>
-                                <textarea 
-                                  className="w-full border rounded-md p-2 text-sm h-24" 
-                                  defaultValue="Developed responsive web applications for clients in financial sector. Collaborated with UX designers to implement pixel-perfect interfaces."
-                                ></textarea>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                    
-                    <Card>
-                      <CardHeader className="flex flex-row items-center justify-between">
-                        <CardTitle className="text-lg">Education</CardTitle>
-                        <Button size="sm">
-                          <Plus className="h-4 w-4 mr-1" /> Add
-                        </Button>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="p-3 border rounded-md">
-                          <div className="flex justify-between items-center mb-2">
-                            <h4 className="font-medium">Computer Science, BS</h4>
-                            <div className="flex space-x-1">
-                              <Button variant="ghost" size="sm">
-                                <Move className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="sm">
-                                <Trash className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1">
-                              <label className="text-xs">Institution</label>
-                              <Input size={1} defaultValue="University of Technology" />
-                            </div>
-                            <div className="space-y-1">
-                              <label className="text-xs">Location</label>
-                              <Input size={1} defaultValue="San Francisco, CA" />
-                            </div>
-                            <div className="space-y-1">
-                              <label className="text-xs">Graduation Year</label>
-                              <Input size={1} defaultValue="2018" />
-                            </div>
-                            <div className="space-y-1">
-                              <label className="text-xs">GPA</label>
-                              <Input size={1} defaultValue="3.8/4.0" />
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                    
-                    <Card>
-                      <CardHeader className="flex flex-row items-center justify-between">
-                        <CardTitle className="text-lg">Skills</CardTitle>
-                        <Button size="sm">
-                          <Plus className="h-4 w-4 mr-1" /> Add
-                        </Button>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-4">
-                          <div className="grid grid-cols-3 gap-2">
-                            <div className="border rounded-md p-2 flex justify-between items-center">
-                              <span>JavaScript</span>
-                              <Button variant="ghost" size="sm">
-                                <Trash className="h-3 w-3" />
-                              </Button>
-                            </div>
-                            <div className="border rounded-md p-2 flex justify-between items-center">
-                              <span>React</span>
-                              <Button variant="ghost" size="sm">
-                                <Trash className="h-3 w-3" />
-                              </Button>
-                            </div>
-                            <div className="border rounded-md p-2 flex justify-between items-center">
-                              <span>TypeScript</span>
-                              <Button variant="ghost" size="sm">
-                                <Trash className="h-3 w-3" />
-                              </Button>
-                            </div>
-                            <div className="border rounded-md p-2 flex justify-between items-center">
-                              <span>HTML/CSS</span>
-                              <Button variant="ghost" size="sm">
-                                <Trash className="h-3 w-3" />
-                              </Button>
-                            </div>
-                            <div className="border rounded-md p-2 flex justify-between items-center">
-                              <span>Node.js</span>
-                              <Button variant="ghost" size="sm">
-                                <Trash className="h-3 w-3" />
-                              </Button>
-                            </div>
-                            <div className="border rounded-md p-2 flex justify-between items-center">
-                              <span>GraphQL</span>
-                              <Button variant="ghost" size="sm">
-                                <Trash className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          </div>
-                          <div className="flex">
-                            <Input placeholder="Add a skill" className="mr-2" />
-                            <Button>Add</Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </TabsContent>
-                  
-                  <TabsContent value="layout" className="space-y-6">
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="text-lg">Template</CardTitle>
-                        <CardDescription>Choose a resume template</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="grid grid-cols-3 gap-4">
-                          <div 
-                            className={`border rounded-md p-2 cursor-pointer ${activeTemplate === 'modern' ? 'border-primary' : ''}`}
-                            onClick={() => setActiveTemplate('modern')}
-                          >
-                            <div className="aspect-[8.5/11] bg-muted mb-2"></div>
-                            <p className="text-center text-sm font-medium">Modern</p>
-                          </div>
-                          <div 
-                            className={`border rounded-md p-2 cursor-pointer ${activeTemplate === 'classic' ? 'border-primary' : ''}`}
-                            onClick={() => setActiveTemplate('classic')}
-                          >
-                            <div className="aspect-[8.5/11] bg-muted mb-2"></div>
-                            <p className="text-center text-sm font-medium">Classic</p>
-                          </div>
-                          <div 
-                            className={`border rounded-md p-2 cursor-pointer ${activeTemplate === 'minimal' ? 'border-primary' : ''}`}
-                            onClick={() => setActiveTemplate('minimal')}
-                          >
-                            <div className="aspect-[8.5/11] bg-muted mb-2"></div>
-                            <p className="text-center text-sm font-medium">Minimal</p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                    
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="text-lg">Section Order</CardTitle>
-                        <CardDescription>Drag and drop to reorder sections</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-2">
-                          <div className="border rounded-md p-3 flex justify-between items-center">
-                            <span className="font-medium">Contact Information</span>
-                            <Button variant="ghost" size="sm">
-                              <Move className="h-4 w-4" />
-                            </Button>
-                          </div>
-                          <div className="border rounded-md p-3 flex justify-between items-center">
-                            <span className="font-medium">Professional Summary</span>
-                            <Button variant="ghost" size="sm">
-                              <Move className="h-4 w-4" />
-                            </Button>
-                          </div>
-                          <div className="border rounded-md p-3 flex justify-between items-center">
-                            <span className="font-medium">Work Experience</span>
-                            <Button variant="ghost" size="sm">
-                              <Move className="h-4 w-4" />
-                            </Button>
-                          </div>
-                          <div className="border rounded-md p-3 flex justify-between items-center">
-                            <span className="font-medium">Education</span>
-                            <Button variant="ghost" size="sm">
-                              <Move className="h-4 w-4" />
-                            </Button>
-                          </div>
-                          <div className="border rounded-md p-3 flex justify-between items-center">
-                            <span className="font-medium">Skills</span>
-                            <Button variant="ghost" size="sm">
-                              <Move className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </TabsContent>
-                  
-                  <TabsContent value="styling" className="space-y-6">
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="text-lg">Colors</CardTitle>
-                        <CardDescription>Customize resume colors</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">Primary Color</label>
-                            <div className="flex">
-                              <Input type="color" defaultValue="#8B5CF6" className="w-12 h-10 p-1" />
-                              <Input defaultValue="#8B5CF6" className="ml-2" />
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">Secondary Color</label>
-                            <div className="flex">
-                              <Input type="color" defaultValue="#6B7280" className="w-12 h-10 p-1" />
-                              <Input defaultValue="#6B7280" className="ml-2" />
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">Heading Color</label>
-                            <div className="flex">
-                              <Input type="color" defaultValue="#111827" className="w-12 h-10 p-1" />
-                              <Input defaultValue="#111827" className="ml-2" />
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">Text Color</label>
-                            <div className="flex">
-                              <Input type="color" defaultValue="#374151" className="w-12 h-10 p-1" />
-                              <Input defaultValue="#374151" className="ml-2" />
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                    
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="text-lg">Typography</CardTitle>
-                        <CardDescription>Customize resume fonts</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">Heading Font</label>
-                            <Select defaultValue="Inter">
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select font" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Inter">Inter</SelectItem>
-                                <SelectItem value="Roboto">Roboto</SelectItem>
-                                <SelectItem value="Open Sans">Open Sans</SelectItem>
-                                <SelectItem value="Montserrat">Montserrat</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">Body Font</label>
-                            <Select defaultValue="Inter">
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select font" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Inter">Inter</SelectItem>
-                                <SelectItem value="Roboto">Roboto</SelectItem>
-                                <SelectItem value="Open Sans">Open Sans</SelectItem>
-                                <SelectItem value="Montserrat">Montserrat</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">Font Size</label>
-                            <Select defaultValue="medium">
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select size" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="small">Small</SelectItem>
-                                <SelectItem value="medium">Medium</SelectItem>
-                                <SelectItem value="large">Large</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">Line Spacing</label>
-                            <Select defaultValue="normal">
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select spacing" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="compact">Compact</SelectItem>
-                                <SelectItem value="normal">Normal</SelectItem>
-                                <SelectItem value="relaxed">Relaxed</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                    
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="text-lg">Page Settings</CardTitle>
-                        <CardDescription>Configure page layout</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">Paper Size</label>
-                            <Select defaultValue="letter">
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select size" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="letter">Letter</SelectItem>
-                                <SelectItem value="a4">A4</SelectItem>
-                                <SelectItem value="legal">Legal</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">Margins</label>
-                            <Select defaultValue="normal">
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select margin" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="narrow">Narrow</SelectItem>
-                                <SelectItem value="normal">Normal</SelectItem>
-                                <SelectItem value="wide">Wide</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </TabsContent>
-                  
-                  <TabsContent value="history" className="space-y-6">
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="text-lg">Version History</CardTitle>
-                        <CardDescription>Previous versions of your resume</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-4">
-                          <div className="border rounded-md p-3">
-                            <div className="flex justify-between items-center">
-                              <div>
-                                <h4 className="font-medium">Current Version</h4>
-                                <p className="text-sm text-muted-foreground">Today at 2:30 PM</p>
-                              </div>
-                              <div className="flex space-x-2">
-                                <Button variant="outline" size="sm">
-                                  <Eye className="h-4 w-4 mr-2" /> View
-                                </Button>
-                                <Button size="sm">
-                                  <FileDown className="h-4 w-4 mr-2" /> Download
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="border rounded-md p-3">
-                            <div className="flex justify-between items-center">
-                              <div>
-                                <h4 className="font-medium">Version 2</h4>
-                                <p className="text-sm text-muted-foreground">Apr 3, 2023 at 10:15 AM</p>
-                              </div>
-                              <div className="flex space-x-2">
-                                <Button variant="outline" size="sm">
-                                  <Eye className="h-4 w-4 mr-2" /> View
-                                </Button>
-                                <Button variant="outline" size="sm">
-                                  <FileDown className="h-4 w-4 mr-2" /> Download
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="border rounded-md p-3">
-                            <div className="flex justify-between items-center">
-                              <div>
-                                <h4 className="font-medium">Version 1</h4>
-                                <p className="text-sm text-muted-foreground">Mar 28, 2023 at 4:45 PM</p>
-                              </div>
-                              <div className="flex space-x-2">
-                                <Button variant="outline" size="sm">
-                                  <Eye className="h-4 w-4 mr-2" /> View
-                                </Button>
-                                <Button variant="outline" size="sm">
-                                  <FileDown className="h-4 w-4 mr-2" /> Download
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </TabsContent>
-                </Tabs>
-              </CardContent>
-            </Card>
-          </div>
-          
-          {/* Preview Panel */}
-          <div className="w-full lg:w-1/3">
-            <div className="sticky top-24">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Resume Preview</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="aspect-[8.5/11] border rounded-md bg-white shadow-md overflow-hidden">
-                    <div className="p-8 h-full">
-                      <div className="border-b pb-4 mb-4">
-                        <h1 className="text-xl font-bold">John Doe</h1>
-                        <p className="text-sm">Full Stack Developer</p>
-                        <div className="flex flex-wrap gap-2 text-xs mt-2 text-gray-600">
-                          <span>john@example.com</span>
-                          <span>•</span>
-                          <span>(123) 456-7890</span>
-                          <span>•</span>
-                          <span>San Francisco, CA</span>
-                        </div>
-                      </div>
-                      
-                      <div className="mb-4">
-                        <h2 className="text-sm font-bold uppercase mb-2">Experience</h2>
-                        <div className="mb-3">
-                          <div className="flex justify-between text-sm">
-                            <strong>Senior Frontend Developer</strong>
-                            <span className="text-xs">Jan 2021 - Present</span>
-                          </div>
-                          <div className="text-xs">Tech Innovators, San Francisco, CA</div>
-                          <p className="text-xs mt-1">Led development of enterprise web applications using React, TypeScript, and GraphQL. Implemented CI/CD pipelines and improved performance by 35%.</p>
-                        </div>
-                        <div>
-                          <div className="flex justify-between text-sm">
-                            <strong>Frontend Developer</strong>
-                            <span className="text-xs">Mar 2019 - Dec 2020</span>
-                          </div>
-                          <div className="text-xs">Digital Solutions Inc, Boston, MA</div>
-                          <p className="text-xs mt-1">Developed responsive web applications for clients in financial sector. Collaborated with UX designers to implement pixel-perfect interfaces.</p>
-                        </div>
-                      </div>
-                      
-                      <div className="mb-4">
-                        <h2 className="text-sm font-bold uppercase mb-2">Education</h2>
-                        <div className="flex justify-between text-sm">
-                          <strong>BS, Computer Science</strong>
-                          <span className="text-xs">2018</span>
-                        </div>
-                        <div className="text-xs">University of Technology, San Francisco, CA</div>
-                        <div className="text-xs">GPA: 3.8/4.0</div>
-                      </div>
-                      
-                      <div>
-                        <h2 className="text-sm font-bold uppercase mb-2">Skills</h2>
-                        <div className="flex flex-wrap gap-1 text-xs">
-                          <span className="bg-gray-100 px-2 py-1 rounded">JavaScript</span>
-                          <span className="bg-gray-100 px-2 py-1 rounded">React</span>
-                          <span className="bg-gray-100 px-2 py-1 rounded">TypeScript</span>
-                          <span className="bg-gray-100 px-2 py-1 rounded">HTML/CSS</span>
-                          <span className="bg-gray-100 px-2 py-1 rounded">Node.js</span>
-                          <span className="bg-gray-100 px-2 py-1 rounded">GraphQL</span>
-                        </div>
-                      </div>
+                    <span className="mb-2 block text-xs text-muted-foreground">Template</span>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(['modern', 'classic', 'compact'] as const).map((option) => (
+                        <button
+                          key={option}
+                          onClick={() => setTemplate(option)}
+                          className={`rounded-xl border px-3 py-2.5 text-xs capitalize transition-colors ${
+                            template === option
+                              ? 'border-primary/50 bg-primary/10 text-primary'
+                              : 'border-white/10 text-muted-foreground hover:text-foreground'
+                          }`}
+                        >
+                          {option}
+                        </button>
+                      ))}
                     </div>
                   </div>
-                  
-                  <div className="flex justify-center mt-4 space-x-2">
-                    <Button variant="outline" size="sm" onClick={handleDownload}>
-                      <Download className="h-4 w-4 mr-1" /> PDF
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      <Eye className="h-4 w-4 mr-1" /> Preview
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+                </div>
+              </Panel>
+
+              <Panel className="p-7">
+                <SectionLabel>Career highlights</SectionLabel>
+                <div className="flex gap-2">
+                  <input
+                    className={fieldClasses()}
+                    placeholder="Reduced infra cost 38% in one quarter"
+                    value={highlightDraft}
+                    onChange={(event) => setHighlightDraft(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' && highlightDraft.trim()) {
+                        event.preventDefault();
+                        setContent({ ...content, highlights: [...content.highlights, highlightDraft.trim()] });
+                        setHighlightDraft('');
+                      }
+                    }}
+                  />
+                  <GhostButton
+                    onClick={() => {
+                      if (!highlightDraft.trim()) return;
+                      setContent({ ...content, highlights: [...content.highlights, highlightDraft.trim()] });
+                      setHighlightDraft('');
+                    }}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </GhostButton>
+                </div>
+                <ul className="mt-4 space-y-2">
+                  {content.highlights.map((highlight, index) => (
+                    <motion.li
+                      key={`${highlight}-${index}`}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className="flex items-start justify-between gap-3 rounded-xl border border-white/[0.08] bg-white/[0.02] px-3.5 py-2.5 text-sm"
+                    >
+                      <span className="flex items-start gap-2">
+                        <Sparkles className="mt-0.5 h-3 w-3 shrink-0 text-primary" />
+                        {highlight}
+                      </span>
+                      <button
+                        onClick={() =>
+                          setContent({
+                            ...content,
+                            highlights: content.highlights.filter((_, position) => position !== index),
+                          })
+                        }
+                        className="text-muted-foreground hover:text-rose-300"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </motion.li>
+                  ))}
+                  {content.highlights.length === 0 && (
+                    <li className="text-xs text-muted-foreground">
+                      Add three to five quantified wins — numbers beat adjectives.
+                    </li>
+                  )}
+                </ul>
+              </Panel>
+
+              <Panel className="p-7">
+                <SectionLabel>Sections included</SectionLabel>
+                <div className="space-y-2">
+                  {(
+                    [
+                      ['experience', 'Work experience'],
+                      ['education', 'Education'],
+                      ['projects', 'Projects'],
+                      ['skills', 'Skills'],
+                      ['writing', 'Writing'],
+                    ] as const
+                  ).map(([key, label]) => (
+                    <label
+                      key={key}
+                      className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm"
+                    >
+                      {label}
+                      <input
+                        type="checkbox"
+                        checked={(content.sections as any)[key]}
+                        onChange={(event) =>
+                          setContent({
+                            ...content,
+                            sections: { ...content.sections, [key]: event.target.checked },
+                          })
+                        }
+                        className="h-4 w-4 accent-[hsl(var(--violet))]"
+                      />
+                    </label>
+                  ))}
+                </div>
+              </Panel>
+            </div>
+
+            {/* ---------------------------------------------------- preview */}
+            <div>
+              <Panel
+                className={`p-8 ${template === 'compact' ? 'text-[13px]' : ''} ${
+                  template === 'classic' ? 'font-serif' : ''
+                }`}
+              >
+                <header className="border-b border-white/10 pb-6">
+                  <h2 className="font-display text-3xl font-semibold tracking-tight">
+                    {profile?.full_name || profile?.username || 'Your name'}
+                  </h2>
+                  <p className="mt-1 text-sm text-secondary">{profile?.title || 'Developer'}</p>
+                  <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                    {profile?.email && <span>{profile.email}</span>}
+                    {profile?.location && <span>{profile.location}</span>}
+                    {profile?.website && <span>{profile.website}</span>}
+                    {profile?.github && <span>{profile.github}</span>}
+                    {profile?.linkedin && <span>{profile.linkedin}</span>}
+                  </p>
+                </header>
+
+                {content.summary && (
+                  <section className="mt-6">
+                    <h3 className="eyebrow mb-3">Summary</h3>
+                    <p className="text-sm leading-relaxed text-foreground/85">{content.summary}</p>
+                  </section>
+                )}
+
+                {content.highlights.length > 0 && (
+                  <section className="mt-6">
+                    <h3 className="eyebrow mb-3">Highlights</h3>
+                    <ul className="space-y-2 text-sm text-foreground/85">
+                      {content.highlights.map((highlight, index) => (
+                        <li key={index} className="flex gap-2">
+                          <span className="text-primary">▸</span>
+                          {highlight}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+
+                {previewSections.map((section) => (
+                  <section key={section.key} className="mt-6">
+                    <h3 className="eyebrow mb-3">{section.title}</h3>
+                    <div className="space-y-4">
+                      {section.items.map((item, index) => (
+                        <div key={index}>
+                          <div className="flex flex-wrap items-baseline justify-between gap-2">
+                            <p className="text-sm font-medium">{item.title}</p>
+                            <p className="mono text-[10px] text-muted-foreground">{item.meta}</p>
+                          </div>
+                          {item.body && (
+                            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{item.body}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                ))}
+
+                {content.sections.skills && data.skills.length > 0 && (
+                  <section className="mt-6">
+                    <h3 className="eyebrow mb-3">Skills</h3>
+                    <p className="text-sm leading-relaxed text-foreground/85">
+                      {data.skills.map((skill) => skill.name).join(' · ')}
+                    </p>
+                  </section>
+                )}
+
+                <footer className="mt-8 border-t border-white/10 pt-4 text-[10px] text-muted-foreground">
+                  Generated from portify.dev/{profile?.username ?? 'your-handle'} ·{' '}
+                  {new Date().toLocaleDateString()}
+                </footer>
+              </Panel>
+
+              <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
+                <span>{template} template · {previewSections.length + 2} sections</span>
+                <span className="mono">saved to d1</span>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </Layout>
   );
