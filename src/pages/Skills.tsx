@@ -25,6 +25,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { RevealGroup, RevealItem } from '@/components/experience/Reveal';
 import { useAuth } from '@/hooks/useAuth';
 import { api, db } from '@/lib/api/client';
+import usePageMeta from '@/hooks/usePageMeta';
 
 interface SkillRow {
   id: string;
@@ -47,6 +48,8 @@ const CATEGORY_SUGGESTIONS = [
 ];
 
 export default function Skills() {
+  usePageMeta({ title: 'Capabilities · Portify', description: 'Document your skills honestly, group them by category and collect peer endorsements.', path: '/skills' });
+
   const { user } = useAuth();
   const [skills, setSkills] = useState<SkillRow[]>([]);
   const [loading, setLoading] = useState(true);

@@ -21,6 +21,7 @@ import { GlowButton, PageHeader, Panel, SectionLabel, fieldClasses } from '@/com
 import { Reveal } from '@/components/experience/Reveal';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { api } from '@/lib/api/client';
+import usePageMeta from '@/hooks/usePageMeta';
 
 interface ContactInfo {
   email?: string;
@@ -61,6 +62,8 @@ const FAQS = [
 ];
 
 export default function Contact() {
+  usePageMeta({ title: 'Contact · Portify', description: 'Collaborations, contract work, speaking or a technical conversation — the message lands in the inbox.', path: '/contact' });
+
   const [contactInfo, setContactInfo] = useState<ContactInfo | null>(null);
   const [socialLinks, setSocialLinks] = useState<SocialLinks | null>(null);
   const [form, setForm] = useState({

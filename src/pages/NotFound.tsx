@@ -3,8 +3,11 @@ import { motion } from 'framer-motion';
 import { Compass, Home } from 'lucide-react';
 import Layout from '@/components/Layout';
 import { GhostButton, GlowButton } from '@/components/ui-kit';
+import usePageMeta from '@/hooks/usePageMeta';
 
 export default function NotFound() {
+  usePageMeta({ title: 'Page not found · Portify', description: 'The link is broken, the handle changed, or the work was unpublished.' });
+
   return (
     <Layout>
       <section className="relative flex min-h-[70vh] items-center justify-center px-6">

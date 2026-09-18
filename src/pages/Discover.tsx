@@ -9,6 +9,7 @@ import { RevealGroup, RevealItem } from '@/components/experience/Reveal';
 import TiltCard from '@/components/experience/TiltCard';
 import FollowButton from '@/components/community/FollowButton';
 import { api } from '@/lib/api/client';
+import usePageMeta from '@/hooks/usePageMeta';
 
 interface Person {
   id: string;
@@ -26,6 +27,8 @@ interface Person {
 }
 
 export default function Discover() {
+  usePageMeta({ title: 'Discover developers · Portify', description: 'Find the people building the future — search by name, role or skill.', path: '/discover' });
+
   const [people, setPeople] = useState<Person[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');

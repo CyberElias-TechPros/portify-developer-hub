@@ -23,6 +23,7 @@ import { GhostButton, GlowButton, Panel, SectionLabel, fieldClasses } from '@/co
 import { useAuth } from '@/hooks/useAuth';
 import { api, uploadMedia } from '@/lib/api/client';
 import { DEFAULT_THEME, THEME_PRESETS, applyTheme, saveTheme } from '@/lib/theme';
+import usePageMeta from '@/hooks/usePageMeta';
 
 type Intent = 'job' | 'freelance' | 'community' | 'personal';
 
@@ -36,6 +37,8 @@ const INTENTS: { id: Intent; label: string; blurb: string; icon: any }[] = [
 const STEPS = ['Identity', 'Handle', 'Intent', 'Look'] as const;
 
 export default function Onboarding() {
+  usePageMeta({ title: 'Set up your studio · Portify', description: 'Claim your handle, pick an intent and a look — about a minute end to end.', path: '/onboarding' });
+
   const navigate = useNavigate();
   const { user, profile, refreshProfile } = useAuth();
   const [step, setStep] = useState(0);

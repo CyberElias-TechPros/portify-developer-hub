@@ -31,6 +31,7 @@ import Layout from '@/components/Layout';
 import { EmptyState, GhostButton, GlowButton, PageHeader, Panel, SectionLabel, StatTile } from '@/components/ui-kit';
 import { useAuth } from '@/hooks/useAuth';
 import { api } from '@/lib/api/client';
+import usePageMeta from '@/hooks/usePageMeta';
 
 interface AnalyticsPayload {
   range: string;
@@ -53,6 +54,8 @@ interface AnalyticsPayload {
 const PIE_COLOURS = ['hsl(258 90% 66%)', 'hsl(189 94% 55%)', 'hsl(42 96% 62%)', 'hsl(330 90% 66%)', 'hsl(160 84% 45%)'];
 
 export default function AdminAnalytics() {
+  usePageMeta({ title: 'Analytics · Portify', description: 'Views, visitors, reactions and referrals for everything you publish.', path: '/admin/analytics' });
+
   const { user } = useAuth();
   const [range, setRange] = useState<'7d' | '30d' | '90d'>('30d');
   const [data, setData] = useState<AnalyticsPayload | null>(null);

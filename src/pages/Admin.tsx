@@ -28,6 +28,7 @@ import { GhostButton, GlowButton, PageHeader, Panel, SectionLabel, StatTile, Tag
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/useAuth';
 import { api } from '@/lib/api/client';
+import usePageMeta from '@/hooks/usePageMeta';
 
 interface AdminStats {
   totals: Record<string, number>;
@@ -45,6 +46,16 @@ interface ContentRow {
   owner?: string | null;
 }
 
+interface AuditEntry {
+  id: string;
+  action: string;
+  target?: string | null;
+  metadata?: any;
+  created_at: string;
+  full_name?: string | null;
+  username?: string | null;
+}
+
 interface HealthReport {
   database?: { ok: boolean; latencyMs?: number };
   assets?: { ok: boolean };
@@ -56,10 +67,13 @@ interface HealthReport {
 }
 
 export default function Admin() {
+  usePageMeta({ title: 'Admin console · Portify', description: 'Platform growth, moderation and infrastructure health.', path: '/admin' });
+
   const { isAdmin, loading: authLoading } = useAuth();
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [health, setHealth] = useState<HealthReport | null>(null);
   const [content, setContent] = useState<{ posts: any[]; projects: any[]; comments: any[] } | null>(null);
+  const [audit, setAudit] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [settings, setSettings] = useState({
@@ -73,7 +87,7 @@ export default function Admin() {
   const load = useCallback(async () => {
     if (!isAdmin) return;
     setLoading(true);
-    const [statsResult, healthResult, contentResult, contactInfo, socialLinks, siteInfo, features] = await Promise.all([
+    const [statsResult, healthResult, contentResult, contactInfo, socialLinks, siteInfo, features, auditResult] = await Promise.all([
       api.get<AdminStats>('/api/admin/stats'),
       api.get<HealthReport>('/api/admin/health'),
       api.get<any>('/api/admin/content'),
@@ -81,7 +95,9 @@ export default function Admin() {
       api.get<{ value: any }>('/api/site/settings/social_links'),
       api.get<{ value: any }>('/api/site/settings/site_info'),
       api.get<{ value: any }>('/api/site/settings/features'),
-    ]);
+      api.get<{ entries: AuditEntry[] }>('/api/admin/audit'),
+    ] as const);
+    setAudit(auditResult.data?.entries ?? []);
     setStats(statsResult.data);
     setHealth(healthResult.data);
     setContent({
@@ -206,6 +222,7 @@ export default function Admin() {
               { value: 'overview', label: 'Overview' },
               { value: 'content', label: 'Content' },
               { value: 'settings', label: 'Site settings' },
+              { value: 'audit', label: 'Moderation & audit' },
               { value: 'health', label: 'Infrastructure' },
             ].map((tab) => (
               <TabsTrigger key={tab.value} value={tab.value} className="rounded-full data-[state=active]:bg-white/[0.08]">
@@ -462,6 +479,41 @@ export default function Admin() {
                 </GhostButton>
               </Panel>
             </div>
+          </TabsContent>
+
+          {/* ----------------------------------------------------------- audit */}
+          <TabsContent value="audit" className="space-y-6">
+            <Panel className="p-6">
+              <SectionLabel>Recent activity, reports included</SectionLabel>
+              {audit.length === 0 ? (
+                <p className="rounded-2xl border border-dashed border-white/10 px-5 py-8 text-center text-sm text-muted-foreground">
+                  Nothing logged yet.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {audit.slice(0, 60).map((entry) => (
+                    <div
+                      key={entry.id}
+                      className="flex flex-col gap-1 rounded-2xl border border-white/[0.08] bg-white/[0.02] px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm">
+                          <span className="mono text-[11px] text-primary">{entry.action}</span>
+                          {entry.target ? ` · ${entry.target}` : ''}
+                        </p>
+                        <p className="truncate text-[11px] text-muted-foreground">
+                          {entry.full_name || entry.username || 'system'}
+                          {entry.metadata?.reason ? ` — “${entry.metadata.reason}”` : ''}
+                        </p>
+                      </div>
+                      <span className="mono shrink-0 text-[10px] text-muted-foreground">
+                        {new Date(entry.created_at).toLocaleString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Panel>
           </TabsContent>
 
           {/* ---------------------------------------------------------- health */}

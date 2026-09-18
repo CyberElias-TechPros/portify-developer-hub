@@ -47,12 +47,13 @@ Open http://localhost:8080. Demo accounts: `elias@portify.dev` / `demo1234`
 - **Media** — `/api/media/upload`, `/api/media/file/*`, list, delete
 - **Integrations** — `/api/integrations/github/repos|import|sync|languages/:username`
 - **Admin** — stats, users, roles, status, audit, content moderation, health, seed
-- **SEO** — `/api/og/:username` (SVG card), `sitemap.xml`, `rss.xml`, `robots.txt`
+- **SEO** — `/api/og/:username` (SVG card), `sitemap.xml`, `rss.xml`, `robots.txt`,
+  plus per-page titles, descriptions and social cards applied client-side
 
 ## Verification
 
 ```sh
-npm run smoke         # 72 API checks against the running Worker (resets + reseeds D1)
+npm run smoke         # 73 API checks against the running Worker (resets + reseeds D1)
 npm run check:render  # renders all 24 routes in jsdom, flags crashes and blank pages
 npm run check:flows   # drives 9 user journeys through the real UI in jsdom
 npm run typecheck     # app + worker TypeScript projects

@@ -35,6 +35,7 @@ import EndorseButton from '@/components/community/EndorseButton';
 import TestimonialForm from '@/components/community/TestimonialForm';
 import Reactions from '@/components/community/Reactions';
 import { usePortfolio } from '@/hooks/useUserContent';
+import usePageMeta from '@/hooks/usePageMeta';
 import { useAuth } from '@/hooks/useAuth';
 import { api } from '@/lib/api/client';
 
@@ -55,6 +56,16 @@ export default function UserPortfolio() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState('about');
+
+  usePageMeta({
+    title: bundle?.profile
+      ? `${bundle.profile.full_name || bundle.profile.username} — ${bundle.profile.title || 'Developer'}`
+      : 'Portfolio · Portify',
+    description: bundle?.profile?.bio ?? undefined,
+    image: bundle?.profile?.username ? `/api/og/${bundle.profile.username}` : undefined,
+    path: `/${username ?? ''}`,
+    type: 'profile',
+  });
 
   const sections = useMemo(
     () => (bundle?.sections ?? []).filter((section: any) => section.visible !== false),

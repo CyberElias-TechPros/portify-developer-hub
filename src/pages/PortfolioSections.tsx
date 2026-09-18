@@ -26,6 +26,7 @@ import { GhostButton, GlowButton, PageHeader, Panel, Tag, fieldClasses } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAuth } from '@/hooks/useAuth';
 import { api, db } from '@/lib/api/client';
+import usePageMeta from '@/hooks/usePageMeta';
 
 interface SectionRow {
   id: string;
@@ -51,6 +52,8 @@ const TYPE_META: Record<string, { icon: any; label: string; hint: string }> = {
 const AVAILABLE_TYPES = ['custom', 'about', 'projects', 'skills', 'experience', 'education', 'blog', 'contact'];
 
 export default function PortfolioSections() {
+  usePageMeta({ title: 'Portfolio studio · Portify', description: 'Compose the narrative — reorder, rename and toggle portfolio sections.', path: '/sections' });
+
   const { user, profile } = useAuth();
   const [sections, setSections] = useState<SectionRow[]>([]);
   const [loading, setLoading] = useState(true);

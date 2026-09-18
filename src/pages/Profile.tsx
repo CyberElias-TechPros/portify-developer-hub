@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useAuth } from '@/hooks/useAuth';
 import { api, auth, db, uploadMedia } from '@/lib/api/client';
+import usePageMeta from '@/hooks/usePageMeta';
 
 interface Dashboard {
   counts: Record<string, number>;
@@ -50,6 +51,8 @@ const socialFields = [
 ] as const;
 
 export default function Profile() {
+  usePageMeta({ title: 'Your studio · Portify', description: 'Profile, handle, avatar, password and account controls.', path: '/profile' });
+
   const { user, profile, updateProfile, refreshProfile, changePassword, signOut } = useAuth();
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [form, setForm] = useState<Record<string, any>>({});

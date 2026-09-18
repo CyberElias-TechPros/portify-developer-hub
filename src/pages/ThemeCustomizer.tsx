@@ -7,6 +7,7 @@ import Layout from '@/components/Layout';
 import { GhostButton, GlowButton, PageHeader, Panel, SectionLabel, fieldClasses } from '@/components/ui-kit';
 import { useAuth } from '@/hooks/useAuth';
 import { api } from '@/lib/api/client';
+import usePageMeta from '@/hooks/usePageMeta';
 import {
   DEFAULT_THEME,
   THEME_PRESETS,
@@ -18,6 +19,8 @@ import {
 } from '@/lib/theme';
 
 export default function ThemeCustomizer() {
+  usePageMeta({ title: 'Theme studio · Portify', description: 'Colour, radius and motion tokens that drive every surface.', path: '/theme' });
+
   const { user } = useAuth();
   const [tokens, setTokens] = useState<ThemeTokens>(DEFAULT_THEME);
   const [saving, setSaving] = useState(false);

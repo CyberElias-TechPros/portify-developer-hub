@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Reveal } from '@/components/experience/Reveal';
 import { useAuth } from '@/hooks/useAuth';
 import { api, db } from '@/lib/api/client';
+import usePageMeta from '@/hooks/usePageMeta';
 
 interface ExperienceRow {
   id: string;
@@ -57,6 +58,8 @@ const emptyEducation = {
 };
 
 export default function Experience() {
+  usePageMeta({ title: 'Track record · Portify', description: 'Work history and education that feed your portfolio, résumé and public profile.', path: '/experience' });
+
   const { user } = useAuth();
   const [experiences, setExperiences] = useState<ExperienceRow[]>([]);
   const [education, setEducation] = useState<EducationRow[]>([]);

@@ -1,7 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { motion, useScroll, useSpring } from 'framer-motion';
-import { ArrowLeft, BookOpen, Clock, Eye, Link2, Pencil, Share2, Trash2 } from 'lucide-react';
+import {
+  ArrowLeft,
+  BookOpen,
+  Clock,
+  Eye,
+  Flag,
+  Link2,
+  Pencil,
+  Share2,
+  Trash2,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import Layout from '@/components/Layout';
 import { EmptyState, GhostButton, GlowButton, Panel, Tag } from '@/components/ui-kit';
@@ -13,6 +23,8 @@ import FollowButton from '@/components/community/FollowButton';
 import { useAuth } from '@/hooks/useAuth';
 import { api, db } from '@/lib/api/client';
 import { renderMarkdown } from '@/lib/markdown';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import usePageMeta from '@/hooks/usePageMeta';
 
 interface Post {
   id: string;
@@ -51,6 +63,9 @@ export default function BlogPost() {
   const [related, setRelated] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [missing, setMissing] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [reporting, setReporting] = useState(false);
   const { scrollYProgress } = useScroll();
   const progress = useSpring(scrollYProgress, { stiffness: 120, damping: 26 });
 
@@ -81,8 +96,50 @@ export default function BlogPost() {
     void load();
   }, [load]);
 
+  usePageMeta({
+    title: post ? `${post.title} · ${post.author?.full_name || 'Portify'}` : 'Article · Portify',
+    description: post?.excerpt ?? undefined,
+    image: post?.cover_image_url ?? undefined,
+    path: `/blog/${slug ?? ''}`,
+    type: 'article',
+  });
+
+  // Record the read so author analytics and view counters stay honest.
+  useEffect(() => {
+    if (!post) return;
+    let key = sessionStorage.getItem('portify.viewer');
+    if (!key) {
+      key = (crypto as any).randomUUID?.() ?? `v-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      sessionStorage.setItem('portify.viewer', key);
+    }
+    void api.post('/api/analytics/event', {
+      owner_id: post.user_id,
+      event_type: 'page_view',
+      path: `/blog/${post.slug}`,
+      session_key: key,
+    });
+  }, [post?.id]);
+
   const html = useMemo(() => (post ? renderMarkdown(post.content) : ''), [post]);
   const isOwner = Boolean(user && post && user.id === post.user_id);
+
+  const submitReport = async () => {
+    if (!post || reportReason.trim().length < 3) return;
+    setReporting(true);
+    const { error } = await api.post('/api/social/report', {
+      content_type: 'blog_post',
+      content_id: post.id,
+      reason: reportReason.trim(),
+    });
+    setReporting(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success('Thanks — moderators will take a look');
+    setReportReason('');
+    setReportOpen(false);
+  };
 
   const share = async () => {
     const url = window.location.href;
@@ -236,6 +293,11 @@ export default function BlogPost() {
               <GhostButton onClick={share}>
                 <Share2 className="h-4 w-4" /> Share
               </GhostButton>
+              {user && !isOwner && !isAdmin && (
+                <GhostButton onClick={() => setReportOpen(true)}>
+                  <Flag className="h-4 w-4" /> Report
+                </GhostButton>
+              )}
               {(isOwner || isAdmin) && (
                 <>
                   <Link to={`/blog/create?edit=${post.id}`}>
@@ -305,6 +367,32 @@ export default function BlogPost() {
           </div>
         )}
       </article>
+
+      <Dialog open={reportOpen} onOpenChange={setReportOpen}>
+        <DialogContent className="border-white/10 bg-[hsl(240_28%_6%)] sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg">Report this article</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Tell the moderators what is wrong. Reports are logged against this article.
+            </DialogDescription>
+          </DialogHeader>
+          <textarea
+            rows={4}
+            value={reportReason}
+            onChange={(event) => setReportReason(event.target.value)}
+            placeholder="Spam, plagiarism, harmful content…"
+            className="mt-4 w-full rounded-2xl border border-white/12 bg-white/[0.04] px-4 py-3 text-sm outline-none focus:border-primary/60"
+          />
+          <div className="mt-4 flex justify-end gap-3">
+            <GhostButton type="button" onClick={() => setReportOpen(false)}>
+              Cancel
+            </GhostButton>
+            <GlowButton onClick={submitReport} disabled={reporting || reportReason.trim().length < 3}>
+              Send report
+            </GlowButton>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }

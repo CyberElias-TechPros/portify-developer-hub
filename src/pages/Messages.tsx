@@ -22,6 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import DirectMessages from '@/components/messages/DirectMessages';
 import { useAuth } from '@/hooks/useAuth';
 import { api } from '@/lib/api/client';
+import usePageMeta from '@/hooks/usePageMeta';
 
 interface Message {
   id: string;
@@ -38,6 +39,8 @@ interface Message {
 }
 
 export default function Messages() {
+  usePageMeta({ title: 'Inbox · Portify', description: 'Portfolio enquiries and direct messages in one place.', path: '/messages' });
+
   const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [counts, setCounts] = useState({ all: 0, unread: 0, starred: 0 });

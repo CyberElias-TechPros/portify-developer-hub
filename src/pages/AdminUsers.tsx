@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useAuth } from '@/hooks/useAuth';
 import { api } from '@/lib/api/client';
+import usePageMeta from '@/hooks/usePageMeta';
 
 interface AdminUser {
   id: string;
@@ -49,6 +50,8 @@ interface AdminUser {
 }
 
 export default function AdminUsers() {
+  usePageMeta({ title: 'People · Portify admin', description: 'Accounts, roles and access control.', path: '/admin/users' });
+
   const { isAdmin, user } = useAuth();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);

@@ -16,6 +16,7 @@ import Layout from '@/components/Layout';
 import { EmptyState, GhostButton, GlowButton, PageHeader, Panel, SectionLabel, fieldClasses } from '@/components/ui-kit';
 import { useAuth } from '@/hooks/useAuth';
 import { api } from '@/lib/api/client';
+import usePageMeta from '@/hooks/usePageMeta';
 
 interface ResumeContent {
   summary: string;
@@ -36,6 +37,8 @@ const defaultContent: ResumeContent = {
 };
 
 export default function ResumeEditor() {
+  usePageMeta({ title: 'Résumé studio · Portify', description: 'Generate a recruiter-ready résumé from the same data as your portfolio.', path: '/resume' });
+
   const { user, profile } = useAuth();
   const [resumeId, setResumeId] = useState<string | null>(null);
   const [name, setName] = useState('My Resume');

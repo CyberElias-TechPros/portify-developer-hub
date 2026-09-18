@@ -8,6 +8,7 @@ import { EmptyState, GhostButton, GlowButton, PageHeader, Panel, Tag, fieldClass
 import { RevealGroup, RevealItem } from '@/components/experience/Reveal';
 import { useAuth } from '@/hooks/useAuth';
 import { api, db } from '@/lib/api/client';
+import usePageMeta from '@/hooks/usePageMeta';
 
 interface PostRow {
   id: string;
@@ -28,6 +29,8 @@ interface PostRow {
 }
 
 export default function Blog() {
+  usePageMeta({ title: 'Writing · Portify', description: 'Case studies and engineering notes from developers building in public.', path: '/blog' });
+
   const { user } = useAuth();
   const [posts, setPosts] = useState<PostRow[]>([]);
   const [mine, setMine] = useState<PostRow[]>([]);

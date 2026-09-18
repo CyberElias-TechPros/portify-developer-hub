@@ -17,6 +17,7 @@ import Layout from '@/components/Layout';
 import { GlowButton, PageHeader, Panel, SectionLabel, Tag } from '@/components/ui-kit';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Reveal, RevealGroup, RevealItem } from '@/components/experience/Reveal';
+import usePageMeta from '@/hooks/usePageMeta';
 
 const GUIDES = [
   {
@@ -91,6 +92,8 @@ const FAQS = [
 ];
 
 export default function Help() {
+  usePageMeta({ title: 'Help centre · Portify', description: 'Short guides for every core flow, plus the questions that come up most often.', path: '/help' });
+
   return (
     <Layout>
       <div className="mx-auto max-w-7xl px-6 pb-24">

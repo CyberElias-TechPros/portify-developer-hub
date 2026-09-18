@@ -18,6 +18,7 @@ import { Reveal, RevealGroup, RevealItem } from '@/components/experience/Reveal'
 import FollowButton from '@/components/community/FollowButton';
 import { api } from '@/lib/api/client';
 import { useAuth } from '@/hooks/useAuth';
+import usePageMeta from '@/hooks/usePageMeta';
 
 interface Person {
   id: string;
@@ -74,6 +75,8 @@ function timeAgo(iso: string) {
 }
 
 export default function Community() {
+  usePageMeta({ title: 'Community · Portify', description: 'Follow developers, react to what they ship and watch a living feed of what the community is building.', path: '/community' });
+
   const { user } = useAuth();
   const [people, setPeople] = useState<Person[]>([]);
   const [activity, setActivity] = useState<ActivityItem[]>([]);

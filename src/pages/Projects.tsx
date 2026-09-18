@@ -29,6 +29,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { RevealGroup, RevealItem } from '@/components/experience/Reveal';
 import { useAuth } from '@/hooks/useAuth';
 import { api, db, uploadMedia } from '@/lib/api/client';
+import usePageMeta from '@/hooks/usePageMeta';
 
 interface ProjectRow {
   id: string;
@@ -62,6 +63,8 @@ const emptyForm = {
 };
 
 export default function Projects() {
+  usePageMeta({ title: 'Your work · Portify', description: 'Curate the projects that show how you think — import from GitHub, feature your best, hide the rest.', path: '/projects' });
+
   const { user } = useAuth();
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [loading, setLoading] = useState(true);
