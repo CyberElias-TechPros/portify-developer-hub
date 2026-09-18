@@ -1,0 +1,21 @@
+# Local development values (copy to `.dev.vars` — it is git-ignored).
+# `wrangler dev` loads this file automatically.
+
+SESSION_SECRET="change-me-to-a-long-random-string"
+
+# GitHub OAuth (optional — "Continue with GitHub" stays hidden until set)
+GITHUB_CLIENT_ID=""
+GITHUB_CLIENT_SECRET=""
+# Raises GitHub API limits for repo imports
+GITHUB_TOKEN=""
+
+# Transactional email via Resend (optional — links are logged locally instead)
+RESEND_API_KEY=""
+MAIL_FROM="Portify <hello@portify.dev>"
+CONTACT_INBOX="hello@portify.dev"
+
+# Behaviour flags
+AUTO_SEED="1"
+DEV_RETURN_TOKENS="1"
+ALLOW_DEV_ROUTES="1"
+RATE_LIMIT_DISABLED="0"
