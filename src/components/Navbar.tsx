@@ -14,6 +14,7 @@ import { Menu, X, User, LogOut, Search, Users, Settings, Sparkles, Mail, Palette
 import { useAuth } from '@/hooks/useAuth';
 import { useUsername } from '@/hooks/useUsername';
 import CommandSearch from './experience/CommandSearch';
+import NotificationsBell from './NotificationsBell';
 
 const links = [
   { name: 'Home', href: '/' },
@@ -110,6 +111,8 @@ export default function Navbar() {
               <Search className="h-3.5 w-3.5" />
               <span className="mono hidden text-[10px] md:block">⌘K</span>
             </button>
+
+            {user && <NotificationsBell />}
 
             {user ? (
               <DropdownMenu>

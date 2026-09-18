@@ -34,7 +34,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { useAuth } from '@/hooks/useAuth';
-import { api, auth, uploadMedia } from '@/lib/api/client';
+import { api, auth, db, uploadMedia } from '@/lib/api/client';
 
 interface Dashboard {
   counts: Record<string, number>;
@@ -58,11 +58,31 @@ export default function Profile() {
   const [handle, setHandle] = useState('');
   const [handleState, setHandleState] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
   const [passwordForm, setPasswordForm] = useState({ current: '', next: '' });
+  const [pending, setPending] = useState<any[]>([]);
   const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     void api.get<Dashboard>('/api/dashboard').then(({ data }) => setDashboard(data ?? null));
   }, [profile?.updated_at]);
+
+  useEffect(() => {
+    if (!user) return;
+    void api
+      .get<{ testimonials: any[] }>('/api/social/pending-testimonials')
+      .then(({ data }) => setPending(data?.testimonials ?? []));
+  }, [user, profile?.updated_at]);
+
+  const moderateTestimonial = async (id: string, approve: boolean) => {
+    const { error } = approve
+      ? await db.from('testimonials').update({ approved: 1 }).eq('id', id)
+      : await db.from('testimonials').delete().eq('id', id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setPending((current) => current.filter((row) => row.id !== id));
+    toast.success(approve ? 'Testimonial published on your portfolio' : 'Testimonial dismissed');
+  };
 
   useEffect(() => {
     if (!profile) return;
@@ -546,6 +566,42 @@ export default function Profile() {
             </Panel>
 
             <Panel className="p-7">
+              <SectionLabel>Testimonials awaiting approval</SectionLabel>
+              {pending.length === 0 ? (
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  Nothing pending. When a collaborator writes a testimonial it lands here for a quick review before it
+                  appears on your portfolio.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {pending.map((row) => (
+                    <div key={row.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                      <p className="text-sm leading-relaxed text-foreground/85">“{row.text}”</p>
+                      <p className="mt-2 text-[11px] text-muted-foreground">
+                        {row.author_name || row.full_name || 'A collaborator'}
+                        {row.company ? ` · ${row.company}` : ''}
+                      </p>
+                      <div className="mt-3 flex gap-2">
+                        <button
+                          onClick={() => void moderateTestimonial(row.id, true)}
+                          className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3.5 py-1.5 text-[11px] text-emerald-200 transition-colors hover:bg-emerald-400/20"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => void moderateTestimonial(row.id, false)}
+                          className="rounded-full border border-white/12 px-3.5 py-1.5 text-[11px] text-muted-foreground transition-colors hover:border-rose-400/30 hover:text-rose-300"
+                        >
+                          Dismiss
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Panel>
+
+            <Panel className="mt-8 p-7">
               <SectionLabel>Launch checklist</SectionLabel>
               <ul className="space-y-3">
                 {checklist.map((item) => (

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import {
   ArrowUpRight,
@@ -22,6 +22,7 @@ import {
   Star,
   Twitter,
   Zap,
+  MessageSquare,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import Layout from '@/components/Layout';
@@ -30,6 +31,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Reveal, RevealGroup, RevealItem } from '@/components/experience/Reveal';
 import TiltCard from '@/components/experience/TiltCard';
 import FollowButton from '@/components/community/FollowButton';
+import EndorseButton from '@/components/community/EndorseButton';
+import TestimonialForm from '@/components/community/TestimonialForm';
 import Reactions from '@/components/community/Reactions';
 import { usePortfolio } from '@/hooks/useUserContent';
 import { useAuth } from '@/hooks/useAuth';
@@ -50,6 +53,7 @@ export default function UserPortfolio() {
   const { username } = useParams();
   const { bundle, loading, error, refetch } = usePortfolio(username);
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState('about');
 
   const sections = useMemo(
@@ -109,6 +113,19 @@ export default function UserPortfolio() {
   const { profile, stats, projects, skills, experiences, education, posts, testimonials, isOwner } = bundle;
   const name = profile.full_name || profile.display_name || profile.username;
   const accent = profile.accent || 'hsl(var(--violet))';
+
+  const startConversation = async (targetId: string) => {
+    if (!user) {
+      navigate('/auth');
+      return;
+    }
+    const { data, error } = await api.post<{ thread: { id: string } }>('/api/dm/threads', { userId: targetId });
+    if (error || !data?.thread) {
+      toast.error(error?.message ?? 'Could not open that conversation');
+      return;
+    }
+    navigate(`/messages?thread=${data.thread.id}`);
+  };
 
   const share = async () => {
     try {
@@ -188,6 +205,9 @@ export default function UserPortfolio() {
                 ) : (
                   <>
                     <FollowButton targetUserId={profile.id} />
+                    <GhostButton onClick={() => void startConversation(profile.id)}>
+                      <MessageSquare className="h-4 w-4" /> Message
+                    </GhostButton>
                     <GhostButton onClick={share}>
                       <Copy className="h-4 w-4" /> Share
                     </GhostButton>
@@ -308,7 +328,9 @@ export default function UserPortfolio() {
                 <AboutSection section={section} profile={profile} stats={stats} />
               )}
               {section.type === 'projects' && <ProjectsSection projects={projects} username={profile.username} />}
-              {section.type === 'skills' && <SkillsSection skills={skills} isOwner={isOwner} />}
+              {section.type === 'skills' && (
+                <SkillsSection skills={skills} isOwner={isOwner} viewerId={user?.id} />
+              )}
               {section.type === 'experience' && <ExperienceSection experiences={experiences} />}
               {section.type === 'education' && <EducationSection education={education} />}
               {section.type === 'blog' && <WritingSection posts={posts} />}
@@ -321,9 +343,17 @@ export default function UserPortfolio() {
             </section>
           ))}
 
-          {testimonials.length > 0 && (
+          {(testimonials.length > 0 || !isOwner) && (
             <section className="scroll-mt-32">
-              <SectionHeading eyebrow="Testimonials" title="What collaborators say" />
+              <SectionHeading
+                eyebrow="Testimonials"
+                title="What collaborators say"
+                action={
+                  !isOwner ? (
+                    <TestimonialForm targetUserId={profile.id} targetName={profile.full_name || profile.username} />
+                  ) : undefined
+                }
+              />
               <div className="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
                 {testimonials.map((testimonial: any) => (
                   <Panel key={testimonial.id} className="p-6">
@@ -345,6 +375,14 @@ export default function UserPortfolio() {
                     </div>
                   </Panel>
                 ))}
+                {testimonials.length === 0 && !isOwner && (
+                  <Panel className="p-8 md:col-span-2 lg:col-span-3">
+                    <p className="text-sm text-muted-foreground">
+                      No testimonials yet. If you have worked with {profile.full_name || profile.username}, be the
+                      first to vouch for them — recommendations are reviewed before they appear.
+                    </p>
+                  </Panel>
+                )}
               </div>
             </section>
           )}
@@ -485,7 +523,15 @@ function ProjectsSection({ projects, username }: { projects: any[]; username: st
   );
 }
 
-function SkillsSection({ skills, isOwner }: { skills: any[]; isOwner: boolean }) {
+function SkillsSection({
+  skills,
+  isOwner,
+  viewerId,
+}: {
+  skills: any[];
+  isOwner: boolean;
+  viewerId?: string | null;
+}) {
   return (
     <div>
       <SectionHeading
@@ -519,9 +565,13 @@ function SkillsSection({ skills, isOwner }: { skills: any[]; isOwner: boolean })
                     transition={{ duration: 1.4, ease: [0.16, 1, 0.3, 1] }}
                   />
                 </div>
-                <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground">
+                <div className="mt-3 flex items-center justify-between gap-3 text-[11px] text-muted-foreground">
                   <span className="mono">{skill.proficiency}%</span>
-                  <span>{skill.endorsed ?? 0} endorsements</span>
+                  {isOwner || viewerId === undefined ? (
+                    <span>{skill.endorsed ?? 0} endorsements</span>
+                  ) : (
+                    <EndorseButton skillId={skill.id} initialCount={skill.endorsed ?? 0} />
+                  )}
                 </div>
               </div>
             </RevealItem>

@@ -18,6 +18,8 @@ import {
 import { toast } from 'sonner';
 import Layout from '@/components/Layout';
 import { EmptyState, GhostButton, GlowButton, PageHeader, Panel, Tag, fieldClasses } from '@/components/ui-kit';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import DirectMessages from '@/components/messages/DirectMessages';
 import { useAuth } from '@/hooks/useAuth';
 import { api } from '@/lib/api/client';
 
@@ -159,6 +161,21 @@ export default function Messages() {
           description="Every message sent through your contact forms, with read state, stars and one-click replies."
         />
 
+        <Tabs defaultValue="inbox" className="w-full">
+          <TabsList className="mb-8 flex-wrap rounded-full border border-white/10 bg-white/[0.03] p-1">
+            <TabsTrigger value="inbox" className="rounded-full data-[state=active]:bg-white/[0.08]">
+              Portfolio inbox
+            </TabsTrigger>
+            <TabsTrigger value="direct" className="rounded-full data-[state=active]:bg-white/[0.08]">
+              Direct messages
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="direct">
+            <DirectMessages />
+          </TabsContent>
+
+          <TabsContent value="inbox">
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative sm:w-80">
             <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -354,6 +371,8 @@ export default function Messages() {
             )}
           </AnimatePresence>
         </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </Layout>
   );

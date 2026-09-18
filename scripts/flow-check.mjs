@@ -77,7 +77,8 @@ for (const name of [
   'window', 'document', 'navigator', 'HTMLElement', 'HTMLInputElement', 'HTMLTextAreaElement', 'Element', 'Node',
   'Event', 'CustomEvent', 'MouseEvent', 'KeyboardEvent', 'getComputedStyle', 'requestAnimationFrame',
   'cancelAnimationFrame', 'localStorage', 'sessionStorage', 'FormData', 'Blob', 'File', 'Image', 'DOMParser',
-  'NodeList', 'HTMLCollection', 'MutationObserver', 'SVGElement', 'EventTarget',
+  'NodeList', 'HTMLCollection', 'MutationObserver', 'SVGElement', 'EventTarget', 'NodeFilter', 'DOMRect',
+  'Range', 'Selection', 'XMLSerializer', 'HTMLDivElement',
 ]) {
   if (window[name] === undefined) continue;
   try {
@@ -96,6 +97,16 @@ if (!health?.data || health.data.database !== 'ok') {
 // authenticates every later flow, exactly like a real session.
 window.localStorage.removeItem('portify.session.token');
 
+const login = await realFetch(`${API}/api/auth/login`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ email: 'elias@portify.dev', password: 'demo1234' }),
+}).then((r) => r.json());
+if (!login?.data?.session?.access_token) {
+  console.error('could not sign in against', API);
+  process.exit(1);
+}
+
 const post = await realFetch(`${API}/api/db/blog_posts?limit=1&order=publish_date.desc`).then((r) => r.json());
 const slug = post?.data?.[0]?.slug;
 const people = await realFetch(`${API}/api/community/people?limit=5`).then((r) => r.json());
@@ -105,8 +116,33 @@ if (!slug || !otherUser) {
   process.exit(1);
 }
 
+// Fixtures for the social flows: a peer skill to endorse, a DM thread and the
+// peer's display name for the testimonial loop.
+const credentials = login.data.session.access_token;
+const authHeaders = { 'Content-Type': 'application/json', Authorization: `Bearer ${credentials}` };
+const portfolio = await realFetch(`${API}/api/portfolio/${otherUser}`).then((r) => r.json());
+const skillId = portfolio?.data?.skills?.find((skill) => skill.user_id !== login.data.user.id)?.id;
+const peerId = portfolio?.data?.profile?.id;
+let threadId = null;
+if (peerId) {
+  const created = await realFetch(`${API}/api/dm/threads`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({ userId: peerId }),
+  }).then((r) => r.json());
+  threadId = created?.data?.thread?.id ?? null;
+}
+console.log(`› fixtures: peer=${otherUser} skill=${skillId ? 'yes' : 'no'} thread=${threadId ? 'yes' : 'no'}`);
+
 const { runFlows } = await import(path.join(OUT, 'flow-entry.js'));
-const flows = await runFlows(slug, otherUser);
+const flows = await runFlows(slug, otherUser, {
+  skillId,
+  threadId,
+  otherName: portfolio?.data?.profile?.full_name ?? otherUser,
+  ownerUsername: 'elias',
+  freshEmail: `newcomer.${Date.now()}@portify.dev`,
+  freshPassword: 'sup3rsecret',
+});
 
 let failed = 0;
 for (const flow of flows) {

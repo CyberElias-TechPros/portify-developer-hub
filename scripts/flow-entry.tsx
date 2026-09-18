@@ -13,6 +13,8 @@ import BlogPost from '@/pages/BlogPost';
 import UserPortfolio from '@/pages/UserPortfolio';
 import Onboarding from '@/pages/Onboarding';
 import { setAuthToken } from '@/lib/api/client';
+import Messages from '@/pages/Messages';
+import Profile from '@/pages/Profile';
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -75,11 +77,42 @@ function findByText(root: ParentNode, selector: string, text: string) {
 
 function click(el: Element | null | undefined) {
   if (!el) return false;
-  el.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true, view: window as any }));
+  const target = el as HTMLElement;
+  target.focus?.();
+  const types = ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'];
+  for (const type of types) {
+    const ctor = (window as any).PointerEvent ?? window.MouseEvent;
+    target.dispatchEvent(new ctor(type, { bubbles: true, cancelable: true, view: window, button: 0 }));
+  }
   return true;
 }
 
-export async function runFlows(slug: string, otherUser: string, freshEmail = `newcomer.${Date.now()}@portify.dev`) {
+/** Signs in through the API so flows can switch identity (visitor ↔ owner). */
+async function apiSignIn(email: string, password: string) {
+  const response = await fetch('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  const payload = await response.json().catch(() => null);
+  const token = payload?.data?.session?.access_token ?? null;
+  if (token) setAuthToken(token);
+  return token;
+}
+
+export async function runFlows(
+  slug: string,
+  otherUser: string,
+  fixtures: {
+    skillId?: string;
+    threadId?: string;
+    otherName?: string;
+    ownerUsername?: string;
+    freshEmail?: string;
+    freshPassword?: string;
+  } = {},
+  freshEmail = fixtures.freshEmail ?? `newcomer.${Date.now()}@portify.dev`
+) {
   const flows: { name: string; steps: Step[] }[] = [];
 
   // ------------------------------------------------------------- 1. sign in --
@@ -205,6 +238,48 @@ export async function runFlows(slug: string, otherUser: string, freshEmail = `ne
     flows.push({ name: 'follow another developer', steps });
   }
 
+  // ------------------------------------------------- 7. endorse a peer skill --
+  if (fixtures.skillId) {
+    const steps: Step[] = [];
+    const view = mount('/:username', `/${otherUser}`, UserPortfolio);
+    const endorse = await waitFor(() => {
+      const button = findByText(view.container, 'button', 'endorse');
+      return button && !(button as HTMLButtonElement).disabled ? button : null;
+    });
+    steps.push({ label: 'peer skill shown and ready', ok: Boolean(endorse), detail: endorse?.textContent?.trim() });
+    click(endorse);
+    const endorsed = await waitFor(() => (view.text().includes('Endorsed') ? 'endorsed' : null), 6000);
+    steps.push({ label: 'endorsement registered', ok: Boolean(endorsed) });
+    // toggle back off so repeated runs stay idempotent
+    click(findByText(view.container, 'button', 'endorsed'));
+    await wait(1200);
+    view.unmount();
+    flows.push({ name: 'endorse a peer skill', steps });
+  }
+
+  // ------------------------------------------------ 8. direct message a peer --
+  if (fixtures.threadId) {
+    const steps: Step[] = [];
+    const view = mount('/messages', `/messages?thread=${fixtures.threadId}`, Messages);
+    await wait(1200);
+    click(findByText(view.container, 'button', 'direct messages'));
+    const composer = await waitFor(() =>
+      [...view.container.querySelectorAll<HTMLTextAreaElement>('textarea')].find((el) =>
+        (el.placeholder || '').includes('Write a message')
+      )
+    );
+    steps.push({ label: 'conversation open', ok: Boolean(composer), detail: view.text().slice(0, 80) });
+    const body = `Ping from the happy-path runner ${Date.now()}`;
+    type(composer, body);
+    await wait(150);
+    const sendButton = composer?.parentElement?.querySelector('button') ?? null;
+    click(sendButton);
+    const delivered = await waitFor(() => (view.text().includes(body) ? 'delivered' : null), 8000);
+    steps.push({ label: 'message sent', ok: Boolean(delivered) });
+    view.unmount();
+    flows.push({ name: 'send a direct message', steps });
+  }
+
   // ------------------------------------------- 6. sign up → onboarding wizard --
   {
     const steps: Step[] = [];
@@ -217,7 +292,7 @@ export async function runFlows(slug: string, otherUser: string, freshEmail = `ne
     );
     type(textInputs[0], 'Nia Newcomer');
     type(auth.container.querySelector<HTMLInputElement>('input[type="email"]'), freshEmail);
-    type(auth.container.querySelector<HTMLInputElement>('input[type="password"]'), 'sup3rsecret');
+    type(auth.container.querySelector<HTMLInputElement>('input[type="password"]'), fixtures.freshPassword ?? 'sup3rsecret');
     if (textInputs[1]) type(textInputs[1], `nia${Date.now().toString().slice(-6)}`);
     await wait(150);
     const submit =
@@ -257,7 +332,46 @@ export async function runFlows(slug: string, otherUser: string, freshEmail = `ne
     const done = await waitFor(() => (view.text().includes('REDIRECTED') ? 'redirected to portfolio' : null), 8000);
     steps.push({ label: 'onboarding completed', ok: Boolean(done) });
     view.unmount();
+
+    const restored = await apiSignIn('elias@portify.dev', 'demo1234');
+    steps.push({ label: 'admin session restored', ok: Boolean(restored) });
     flows.push({ name: 'sign up and complete onboarding', steps });
+  }
+
+  // ------------------------------------------------- 9. testimonial loop --
+  if (fixtures.ownerUsername && fixtures.freshEmail) {
+    const steps: Step[] = [];
+    const asVisitor = await apiSignIn(fixtures.freshEmail, fixtures.freshPassword ?? 'sup3rsecret');
+    steps.push({ label: 'signed in as the new account', ok: Boolean(asVisitor) });
+
+    const view = mount('/:username', `/${fixtures.ownerUsername}`, UserPortfolio);
+    const openButton = await waitFor(() => findByText(view.container, 'button', 'leave a testimonial'));
+    steps.push({ label: 'testimonial call-to-action', ok: Boolean(openButton) });
+    click(openButton);
+    const textarea = await waitFor(() =>
+      document.querySelector<HTMLTextAreaElement>('textarea[placeholder^="They rebuilt"]')
+    );
+    const quote = `Delivered our edge migration end to end — ${Date.now()}`;
+    type(textarea, quote);
+    await wait(200);
+    const submit = findByText(document, 'button', 'submit testimonial');
+    steps.push({ label: 'submitted testimonial', ok: click(submit), detail: quote.slice(-18) });
+    await wait(2500);
+    view.unmount();
+
+    const asOwner = await apiSignIn('elias@portify.dev', 'demo1234');
+    steps.push({ label: 'owner signed back in', ok: Boolean(asOwner) });
+    const owner = mount('/profile', '/profile', Profile);
+    const approve = await waitFor(() => findByText(owner.container, 'button', 'approve'), 9000);
+    steps.push({ label: 'owner sees it pending approval', ok: Boolean(approve), detail: owner.text().slice(0, 80) });
+    click(approve);
+    await wait(2200);
+    steps.push({
+      label: 'approved — removed from the queue',
+      ok: Boolean(approve) && !findByText(owner.container, 'button', 'approve'),
+    });
+    owner.unmount();
+    flows.push({ name: 'testimonial submitted and approved', steps });
   }
 
   return flows;

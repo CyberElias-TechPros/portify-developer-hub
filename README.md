@@ -52,15 +52,17 @@ Open http://localhost:8080. Demo accounts: `elias@portify.dev` / `demo1234`
 ## Verification
 
 ```sh
-npm run smoke         # 73 API checks against the running Worker (resets + reseeds D1)
+npm run smoke         # 72 API checks against the running Worker (resets + reseeds D1)
 npm run check:render  # renders all 24 routes in jsdom, flags crashes and blank pages
-npm run check:flows   # drives 6 user journeys through the real UI in jsdom
+npm run check:flows   # drives 9 user journeys through the real UI in jsdom
 npm run typecheck     # app + worker TypeScript projects
 npm run build         # production bundle into ./dist
 ```
 
 `check:flows` covers: email sign-in, contact submission, commenting, reacting,
-following another developer, and the full sign-up → onboarding → portfolio path.
+following and endorsing another developer, direct messaging, the full
+sign-up → onboarding → portfolio path, and the testimonial loop
+(visitor writes → owner approves).
 
 ## Deploying to Cloudflare
 
