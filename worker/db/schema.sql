@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
   email           TEXT NOT NULL UNIQUE,
   password_hash   TEXT,
   password_salt   TEXT,
-  password_iter   INTEGER DEFAULT 210000,
+  password_iter   INTEGER DEFAULT 100000,
   provider        TEXT NOT NULL DEFAULT 'password',   -- password | github | google
   provider_id     TEXT,
   email_verified  INTEGER NOT NULL DEFAULT 0,

@@ -54,10 +54,16 @@ APP_NAME = "portify-api"
 ENVIRONMENT = "production"
 PUBLIC_SIGNUPS = "1"
 # Seeds demo portfolios when the database is empty (idempotent, safe to keep).
-AUTO_SEED = "1"
+# Off in production: runSeed() creates an admin account with the hard-coded
+# password "demo1234" (plus "portfolio123" accounts). Any unauthenticated hit on
+# /api/* triggers it, so leaving it on in production hands out a working admin
+# login. The first real admin is provisioned explicitly instead.
+AUTO_SEED = "0"
 # Password-reset links are returned in the API response when no mail provider
-# is configured — turn this off in production once Resend is wired up.
-DEV_RETURN_TOKENS = "1"
+# is configured. No mail provider is wired up, so leaving this on would hand
+# anyone who triggers a reset the token in the response -- an account takeover
+# path. Keep it off in production.
+DEV_RETURN_TOKENS = "0"
 # Unauthenticated access to /api/admin/seed (handy for previews).
 ALLOW_DEV_ROUTES = "0"
 RATE_LIMIT_DISABLED = "0"

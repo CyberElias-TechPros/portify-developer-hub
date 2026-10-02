@@ -52,7 +52,14 @@ export interface PasswordHash {
   iterations: number;
 }
 
-const DEFAULT_ITERATIONS = 210_000;
+const DEFAULT_ITERATIONS = 100_000;
+const MIN_ITERATIONS = 1_000;
+const MAX_ITERATIONS = 100_000;
+
+function clampIterations(iterations: number): number {
+  if (!Number.isFinite(iterations)) return DEFAULT_ITERATIONS;
+  return Math.min(Math.max(Math.trunc(iterations), MIN_ITERATIONS), MAX_ITERATIONS);
+}
 
 export async function hashPassword(password: string, iterations = DEFAULT_ITERATIONS): Promise<PasswordHash> {
   const saltBytes = new Uint8Array(16);
@@ -75,7 +82,7 @@ export async function verifyPassword(password: string, stored: PasswordHash): Pr
 async function pbkdf2(password: string, salt: Uint8Array, iterations: number): Promise<string> {
   const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']);
   const bits = await crypto.subtle.deriveBits(
-    { name: 'PBKDF2', salt, iterations, hash: 'SHA-256' },
+    { name: 'PBKDF2', salt, iterations: clampIterations(iterations), hash: 'SHA-256' },
     keyMaterial,
     256
   );
